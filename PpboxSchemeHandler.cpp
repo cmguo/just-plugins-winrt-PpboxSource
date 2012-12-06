@@ -99,7 +99,7 @@ HRESULT PpboxSchemeHandler::BeginCreateObject(
         m_pResult->AddRef();
 
         LPCSTR pszPlaylink = W2A(pwszURL);
-        PPBOX_AsyncOpenEx(pszPlaylink, "raw?RawMuxer.video_format=es", &PpboxSchemeHandler::StaticOpenCallback);
+        PPBOX_AsyncOpenEx(pszPlaylink, "raw?RawMuxer.video_format=es&RawMuxer.time_scale=10000000", &PpboxSchemeHandler::StaticOpenCallback);
     }
 
     return hr;

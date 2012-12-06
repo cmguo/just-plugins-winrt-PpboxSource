@@ -1377,7 +1377,7 @@ HRESULT PpboxMediaSource::DeliverPayload()
     // Time stamp the sample.
     if (SUCCEEDED(hr))
     {
-        LONGLONG hnsStart = (sample.start_time + sample.composite_time_delta) * 10;
+        LONGLONG hnsStart = (sample.decode_time + sample.composite_time_delta);
 
         hr = pSample->SetSampleTime(hnsStart);
     }
