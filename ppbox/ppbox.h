@@ -27,7 +27,7 @@ extern FT_ ## name fp_ ## name();
 typedef void * HMODULE;
 #define PPBOX_LIB_NAME "libppbox-linux-x86-gcc44-mt-gd-1.0.0.so"
 #else
-#define PPBOX_LIB_NAME TEXT("ppbox_dll.dll")
+#define PPBOX_LIB_NAME TEXT("ppbox.dll")
 #define dlopen(n, f) LoadPackagedLibrary(n, 0)
 #define dlsym(m, s) GetProcAddress(m, s)
 #define dlclose(m) FreeLibrary(m)
@@ -44,6 +44,10 @@ IMPORT_FUNC(PPBOX_StopP2PEngine);
 IMPORT_FUNC(PPBOX_GetLastError);
 #define PPBOX_GetLastError fp_PPBOX_GetLastError()
 IMPORT_FUNC(PPBOX_GetLastErrorMsg);
+#define PPBOX_ScheduleCallback fp_PPBOX_ScheduleCallback()
+IMPORT_FUNC(PPBOX_ScheduleCallback);
+#define PPBOX_CancelCallback fp_PPBOX_CancelCallback()
+IMPORT_FUNC(PPBOX_CancelCallback);
 
 IMPORT_FUNC(PPBOX_Open);
 #define PPBOX_Open fp_PPBOX_Open()

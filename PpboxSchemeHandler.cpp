@@ -90,6 +90,7 @@ HRESULT PpboxSchemeHandler::BeginCreateObject(
     PpboxMediaSource    *pSource = NULL;
 
     inst = this;
+	inst->AddRef();
 
     hr = MFCreateAsyncResult(NULL, pCallback, punkState, &pResult);
 
@@ -99,7 +100,7 @@ HRESULT PpboxSchemeHandler::BeginCreateObject(
         m_pResult->AddRef();
 
         LPCSTR pszPlaylink = W2A(pwszURL);
-        PPBOX_AsyncOpenEx(pszPlaylink, "raw?RawMuxer.video_format=es&RawMuxer.time_scale=10000000", &PpboxSchemeHandler::StaticOpenCallback);
+        PPBOX_AsyncOpenEx(pszPlaylink, "format=raw&mux.RawMuxer.video_format=es&mux.RawMuxer.time_scale=10000000", &PpboxSchemeHandler::StaticOpenCallback);
     }
 
     return hr;
@@ -112,6 +113,7 @@ void __cdecl PpboxSchemeHandler::StaticOpenCallback(long err)
         PPBOX_Close();
     }
     inst->OpenCallback(err == ppbox_success ? S_OK : E_FAIL);
+	inst->Release();
 }
 
 void PpboxSchemeHandler::OpenCallback(HRESULT hr)

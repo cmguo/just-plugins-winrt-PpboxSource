@@ -169,8 +169,9 @@ public:
     );
     STDMETHODIMP Stop();
 
-    // Queues an asynchronous operation, specify by op-type.
     // (This method is public because the streams call it.)
+    HRESULT EndOfStream();
+
     HRESULT RequestSample();
 
     // Lock/Unlock:
@@ -206,7 +207,7 @@ private:
     HRESULT     SelectStreams(IMFPresentationDescriptor *pPD, PROPVARIANT * varStart);
 
     HRESULT     DeliverPayload();
-    HRESULT     EndOfStream();
+    HRESULT     EndOfPpboxStream();
 
     HRESULT     CreateStream(long stream_id);
 
@@ -244,7 +245,8 @@ private:
 
     // Async callback helper.
     AsyncCallback<PpboxMediaSource>  m_OnScheduleDelayRequestSample;
-    MFWORKITEM_KEY              m_keyScheduleDelayRequestSample;
+    //MFWORKITEM_KEY              m_keyScheduleDelayRequestSample;
+	void *						m_keyScheduleDelayRequestSample;
 };
 
 

@@ -656,7 +656,7 @@ HRESULT PpboxMediaStream::DispatchSamples()
         }
 
         // Notify the source. It will send the end-of-presentation event.
-        hr = m_pSource->RequestSample();
+        hr = m_pSource->EndOfStream();
         if (FAILED(hr))
         {
             goto done;

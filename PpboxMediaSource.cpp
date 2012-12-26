@@ -322,6 +322,70 @@ HRESULT PpboxMediaSource::RequestSample()
 
 
 //-------------------------------------------------------------------
+// RequestSample
+// 
+//-------------------------------------------------------------------
+
+HRESULT PpboxMediaSource::EndOfStream()
+{
+    EnterCriticalSection(&m_critSec);
+
+    HRESULT hr = S_OK;
+
+    // Fail if the source is shut down.
+    hr = CheckShutdown();
+
+    // Queue the operation.
+    if (SUCCEEDED(hr))
+    {
+        hr = QueueAsyncOperation(SourceOp::OP_END_OF_STREAM);
+    }
+
+    LeaveCriticalSection(&m_critSec);
+    return hr;
+}
+
+//-------------------------------------------------------------------
+// OnEndOfStream
+// Called by each stream when it sends the last sample in the stream.
+//
+// Note: When the media source reaches the end of the MPEG-1 stream,
+// it calls EndOfStream on each stream object. The streams might have
+// data still in their queues. As each stream empties its queue, it
+// notifies the source through an async OP_END_OF_STREAM operation.
+//
+// When every stream notifies the source, the source can send the
+// "end-of-presentation" event.
+//-------------------------------------------------------------------
+
+HRESULT PpboxMediaSource::OnEndOfStream(SourceOp *pOp)
+{
+    HRESULT hr = S_OK;
+
+    hr = BeginAsyncOp(pOp);
+
+    // Decrement the count of end-of-stream notifications.
+    if (SUCCEEDED(hr))
+    {
+        --m_cPendingEOS;
+        if (m_cPendingEOS == 0)
+        {
+            // No more streams. Send the end-of-presentation event.
+            hr = m_pEventQueue->QueueEventParamVar(MEEndOfPresentation, GUID_NULL, S_OK, NULL);
+        }
+
+    }
+
+    if (SUCCEEDED(hr))
+    {
+        hr = CompleteAsyncOp(pOp);
+    }
+
+    return hr;
+}
+
+
+//-------------------------------------------------------------------
 // Pause
 // Pauses the source.
 //-------------------------------------------------------------------
@@ -985,6 +1049,9 @@ HRESULT PpboxMediaSource::DoStop(SourceOp *pOp)
 
     m_state = STATE_STOPPED;
 
+	if (m_keyScheduleDelayRequestSample)
+		PPBOX_CancelCallback(m_keyScheduleDelayRequestSample);
+
     // Send the "stopped" event. This might include a failure code.
     (void)m_pEventQueue->QueueEventParamVar(MESourceStopped, GUID_NULL, hr, NULL);
 
@@ -1088,47 +1155,6 @@ HRESULT PpboxMediaSource::OnStreamRequestSample(SourceOp *pOp)
 
     return hr;
 }
-
-
-//-------------------------------------------------------------------
-// OnEndOfStream
-// Called by each stream when it sends the last sample in the stream.
-//
-// Note: When the media source reaches the end of the Ppbox stream,
-// it calls EndOfStream on each stream object. The streams might have
-// data still in their queues. As each stream empties its queue, it
-// notifies the source through an async OP_END_OF_STREAM operation.
-//
-// When every stream notifies the source, the source can send the
-// "end-of-presentation" event.
-//-------------------------------------------------------------------
-
-HRESULT PpboxMediaSource::OnEndOfStream(SourceOp *pOp)
-{
-    HRESULT hr = S_OK;
-
-    hr = BeginAsyncOp(pOp);
-
-    // Decrement the count of end-of-stream notifications.
-    if (SUCCEEDED(hr))
-    {
-        --m_cPendingEOS;
-        if (m_cPendingEOS == 0)
-        {
-            // No more streams. Send the end-of-presentation event.
-            hr = m_pEventQueue->QueueEventParamVar(MEEndOfPresentation, GUID_NULL, S_OK, NULL);
-        }
-
-    }
-
-    if (SUCCEEDED(hr))
-    {
-        hr = CompleteAsyncOp(pOp);
-    }
-
-    return hr;
-}
-
 
 
 //-------------------------------------------------------------------
@@ -1241,7 +1267,7 @@ done:
 // Called when the parser reaches the end of the Ppbox stream.
 //-------------------------------------------------------------------
 
-HRESULT PpboxMediaSource::EndOfStream()
+HRESULT PpboxMediaSource::EndOfPpboxStream()
 {
     // Notify the streams. The streams might have pending samples.
     // When each stream delivers the last sample, it will send the
@@ -1299,6 +1325,14 @@ BOOL PpboxMediaSource::StreamsNeedData() const
     }
 }
 
+static void OnPpboxTimer(
+	void * callback, 
+	PP_err result)
+{
+	AsyncCallback<PpboxMediaSource> * async_callback = (AsyncCallback<PpboxMediaSource> *)callback;
+	MFPutWorkItem2(MFASYNC_CALLBACK_QUEUE_STANDARD, 0, async_callback, NULL);
+}
+
 //-------------------------------------------------------------------
 // DeliverPayload:
 // Delivers an Ppbox payload.
@@ -1325,7 +1359,13 @@ HRESULT PpboxMediaSource::DeliverPayload()
     else if (hr == ppbox_would_block)
     {
         //hr = MFScheduleWorkItem(&m_OnScheduleDelayRequestSample, NULL, -100, NULL);
-        return hr;
+        //return hr;
+		if (m_keyScheduleDelayRequestSample == 0) {
+			OutputDebugString(L"[DeliverPayload] would block\r\n");
+			m_keyScheduleDelayRequestSample = 
+				PPBOX_ScheduleCallback(100, &m_OnScheduleDelayRequestSample, OnPpboxTimer);
+		}
+		hr = S_OK;
     }
     else if (hr == ppbox_stream_end)
     {
@@ -1400,7 +1440,7 @@ HRESULT PpboxMediaSource::DeliverPayload()
 
     if (FAILED(hr))
     {
-        hr = EndOfStream();
+        hr = EndOfPpboxStream();
     }
 
     SafeRelease(&pBuffer);
@@ -1595,6 +1635,8 @@ HRESULT PpboxMediaSource::OnScheduleDelayRequestSample(IMFAsyncResult *pResult)
     }
 
     hr = QueueAsyncOperation(SourceOp::OP_REQUEST_DATA);
+
+	m_keyScheduleDelayRequestSample = 0;
 
     SafeRelease(&pState);
     LeaveCriticalSection(&m_critSec);

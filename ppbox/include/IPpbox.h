@@ -20,6 +20,9 @@ typedef long PP_int32;
 typedef unsigned short PP_uint16;
 typedef unsigned long PP_uint32;
 typedef unsigned long long PP_uint64;
+typedef PP_int32 PP_err;
+
+typedef void * PPBOX_HANDLE;
 
 enum PPBOX_ErrorEnum
 {
@@ -98,6 +101,14 @@ extern "C" {
     PPBOX_DECL EXPORT_FUNC(void, PPBOX_LogDump)(
         PPBOX_OnLogDump callback,
         PP_int32 level);
+
+    PPBOX_DECL EXPORT_FUNC(PPBOX_HANDLE, PPBOX_ScheduleCallback)(
+        PP_uint32 delay, 
+        void * user_data, 
+        PPBOX_Callback callback);
+
+    PPBOX_DECL EXPORT_FUNC(PP_err, PPBOX_CancelCallback)(
+        PPBOX_HANDLE handle);
 
 #if __cplusplus
 }
