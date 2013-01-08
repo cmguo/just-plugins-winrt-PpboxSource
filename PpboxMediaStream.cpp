@@ -516,6 +516,7 @@ HRESULT PpboxMediaStream::Shutdown()
 
         SafeRelease(&m_pStreamDescriptor);
         SafeRelease(&m_pEventQueue);
+        SafeRelease(&m_pSource);
 
         // NOTE:
         // Do NOT release the source pointer here, because the stream uses

@@ -430,7 +430,10 @@ HRESULT PpboxMediaSource::Shutdown()
 
         for (DWORD i = 0; i < m_stream_number; i++)
         {
-            (void)m_streams[i]->Shutdown();
+            pStream = m_streams[i];
+            m_streams[i] = NULL;
+            (void)pStream->Shutdown();
+            SafeRelease(&pStream);
         }
 
         // Shut down the event queue.

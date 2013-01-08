@@ -72,7 +72,6 @@ private:
     void OpenCallback(HRESULT hr);
 
     long            m_cRef; // reference count
-    HRESULT         m_OpenResult;
     PpboxMediaSource     *m_pSource;
     IMFAsyncResult  *m_pResult;
 };
