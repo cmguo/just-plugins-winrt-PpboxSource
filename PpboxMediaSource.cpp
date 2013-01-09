@@ -283,9 +283,12 @@ HRESULT PpboxMediaSource::GetCharacteristics(DWORD* pdwCharacteristics)
 
     if (SUCCEEDED(hr))
     {
-        *pdwCharacteristics =  MFMEDIASOURCE_CAN_PAUSE;
-        if (m_uDuration > 0)
+        if (m_bLive) {
+			*pdwCharacteristics |= MFMEDIASOURCE_IS_LIVE;
+		} else {
             *pdwCharacteristics |= MFMEDIASOURCE_CAN_SEEK;
+			*pdwCharacteristics =  MFMEDIASOURCE_CAN_PAUSE;
+		}
     }
 
     // NOTE: This sample does not implement seeking, so we do not
@@ -601,6 +604,7 @@ PpboxMediaSource::PpboxMediaSource(HRESULT& hr) :
     m_pCurrentOp(NULL),
     m_cRestartCounter(0),
     m_pSampleRequest(NULL),
+	m_bLive(FALSE),
     m_uDuration(0),
     m_OnScheduleDelayRequestSample(this, &PpboxMediaSource::OnScheduleDelayRequestSample),
     m_keyScheduleDelayRequestSample(0)
@@ -676,6 +680,7 @@ HRESULT PpboxMediaSource::InitPresentationDescriptor()
     assert(m_pPresentationDescriptor == NULL);
 
     m_uDuration = PPBOX_GetDuration();
+	m_bLive = m_uDuration == (PP_uint32)-1;
     m_uDuration *= 10000;
 
 	m_stream_number = PPBOX_GetStreamCount();
@@ -713,7 +718,7 @@ HRESULT PpboxMediaSource::InitPresentationDescriptor()
         goto done;
     }
 
-    if (m_uDuration > 0)
+    if (!m_bLive)
     {
         hr = m_pPresentationDescriptor->SetUINT64(MF_PD_DURATION, m_uDuration);
         if (FAILED(hr))
@@ -1182,9 +1187,9 @@ HRESULT PpboxMediaSource::SelectStreams(
     // Reset the pending EOS count.
     m_cPendingEOS = 0;
 
-    if (varStart->vt == VT_I8)
+    if (varStart->vt == VT_I8 && !m_bLive)
     {
-        hr = PPBOX_Seek(varStart->hVal.QuadPart / 10000);
+        hr = PPBOX_Seek((PP_uint32)(varStart->hVal.QuadPart / 10000));
         if (hr == ppbox_success || hr == ppbox_would_block) {
             hr = S_OK;
         } else {
@@ -1369,6 +1374,7 @@ HRESULT PpboxMediaSource::DeliverPayload()
 				PPBOX_ScheduleCallback(100, &m_OnScheduleDelayRequestSample, OnPpboxTimer);
 		}
 		hr = S_OK;
+        return hr;
     }
     else if (hr == ppbox_stream_end)
     {
@@ -1636,6 +1642,8 @@ HRESULT PpboxMediaSource::OnScheduleDelayRequestSample(IMFAsyncResult *pResult)
     {
         StreamingError(hr);
     }
+
+	OutputDebugString(L"OnScheduleDelayRequestSample\r\n");
 
     hr = QueueAsyncOperation(SourceOp::OP_REQUEST_DATA);
 
@@ -1966,12 +1974,12 @@ HRESULT Fill_HEAACWAVEFORMAT(const PPBOX_StreamInfoEx& info, PHEAACWAVEFORMAT fo
 {
     PWAVEFORMATEX wf = &format->wfInfo.wfx;
     wf->wFormatTag = WAVE_FORMAT_MPEG_HEAAC;
-    wf->nChannels = info.audio_format.channel_count;
+    wf->nChannels = (WORD)info.audio_format.channel_count;
     wf->nSamplesPerSec = info.audio_format.sample_rate;
     wf->nAvgBytesPerSec = 0;
     wf->nBlockAlign = 1;
-    wf->wBitsPerSample = info.audio_format.sample_size;
-    wf->cbSize = sizeof(format->wfInfo) - sizeof(format->wfInfo.wfx) + info.format_size;
+    wf->wBitsPerSample = (WORD)info.audio_format.sample_size;
+    wf->cbSize = (WORD)(sizeof(format->wfInfo) - sizeof(format->wfInfo.wfx) + info.format_size);
 	PHEAACWAVEINFO hawi = &format->wfInfo;
 	hawi->wPayloadType = 0; // The stream contains raw_data_block elements only. 
 	hawi->wAudioProfileLevelIndication = 0x29;

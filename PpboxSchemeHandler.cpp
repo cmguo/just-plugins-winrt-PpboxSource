@@ -87,8 +87,6 @@ HRESULT PpboxSchemeHandler::BeginCreateObject(
     HRESULT hr = S_OK;
     IMFAsyncResult * pResult = NULL;
 
-    PpboxMediaSource    *pSource = NULL;
-
     inst = this;
 	inst->AddRef();
 

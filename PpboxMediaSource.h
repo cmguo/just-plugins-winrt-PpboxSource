@@ -241,6 +241,7 @@ private:
     SourceOp                    *m_pCurrentOp;
     SourceOp                    *m_pSampleRequest;
 
+    BOOL                        m_bLive;
     UINT64                      m_uDuration;
 
     // Async callback helper.
