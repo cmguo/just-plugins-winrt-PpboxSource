@@ -26,7 +26,8 @@ extern "C" {
     PPBOX_DECL EXPORT_FUNC(void, PPBOX_AsyncOpenEx)(
         PP_char const * playlink, 
         PP_char const * format, 
-        PPBOX_Open_Callback callback);
+		void * user_data, 
+        PPBOX_Callback callback);
 	/*
 	typedef void (*PPBOX_Open_CallbackEx)(PP_int32, void * data);
 

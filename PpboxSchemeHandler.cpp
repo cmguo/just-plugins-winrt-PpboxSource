@@ -61,8 +61,6 @@ IFACEMETHODIMP PpboxSchemeHandler::SetProperties(ABI::Windows::Foundation::Colle
 // Starts creating the media source.
 //-------------------------------------------------------------------
 
-static PpboxSchemeHandler * inst = NULL;
-
 HRESULT PpboxSchemeHandler::BeginCreateObject(
     /* [in] */ LPCWSTR pwszURL,
     /* [in] */ DWORD dwFlags,
@@ -87,9 +85,6 @@ HRESULT PpboxSchemeHandler::BeginCreateObject(
     HRESULT hr = S_OK;
     IMFAsyncResult * pResult = NULL;
 
-    inst = this;
-	inst->AddRef();
-
     hr = MFCreateAsyncResult(NULL, pCallback, punkState, &pResult);
 
     if (SUCCEEDED(hr))
@@ -97,21 +92,30 @@ HRESULT PpboxSchemeHandler::BeginCreateObject(
         m_pResult = pResult;
         m_pResult->AddRef();
 
+		*ppIUnknownCancelCookie = pResult;
+		(*ppIUnknownCancelCookie)->AddRef();
+
         LPCSTR pszPlaylink = W2A(pwszURL);
-        PPBOX_AsyncOpenEx(pszPlaylink, "format=raw&demux.Source.time_out=0&mux.RawMuxer.video_format=es&mux.RawMuxer.time_scale=10000000", &PpboxSchemeHandler::StaticOpenCallback);
+		AddRef();
+        PPBOX_AsyncOpenEx(
+			pszPlaylink, 
+			"format=raw&demux.Source.time_out=0&mux.RawMuxer.video_format=es&mux.RawMuxer.time_scale=10000000", 
+			this, 
+			&PpboxSchemeHandler::StaticOpenCallback);
     }
 
     return hr;
 }
 
-void __cdecl PpboxSchemeHandler::StaticOpenCallback(long err)
+void __cdecl PpboxSchemeHandler::StaticOpenCallback(void * user, long err)
 {
-    if (err != ppbox_success && err != ppbox_already_open)
+	PpboxSchemeHandler * inst = (PpboxSchemeHandler *)user;
+    if (err != ppbox_success && err != ppbox_already_open && err != ppbox_operation_canceled)
     {
         PPBOX_Close();
     }
     inst->OpenCallback(err == ppbox_success ? S_OK : E_FAIL);
-	inst->Release();
+	SafeRelease(&inst);
 }
 
 void PpboxSchemeHandler::OpenCallback(HRESULT hr)
