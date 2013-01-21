@@ -283,11 +283,11 @@ HRESULT PpboxMediaSource::GetCharacteristics(DWORD* pdwCharacteristics)
 
     if (SUCCEEDED(hr))
     {
+		*pdwCharacteristics = 0;
+		*pdwCharacteristics |= MFMEDIASOURCE_CAN_PAUSE;
+        *pdwCharacteristics |= MFMEDIASOURCE_CAN_SEEK;
         if (m_bLive) {
-			*pdwCharacteristics |= MFMEDIASOURCE_IS_LIVE;
-		} else {
-            *pdwCharacteristics |= MFMEDIASOURCE_CAN_SEEK;
-			*pdwCharacteristics =  MFMEDIASOURCE_CAN_PAUSE;
+			//*pdwCharacteristics |= MFMEDIASOURCE_IS_LIVE;
 		}
     }
 
