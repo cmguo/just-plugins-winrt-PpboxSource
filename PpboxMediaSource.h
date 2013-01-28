@@ -243,6 +243,7 @@ private:
 
     BOOL                        m_bLive;
     UINT64                      m_uDuration;
+    UINT64                      m_uTime;
 
     // Async callback helper.
     AsyncCallback<PpboxMediaSource>  m_OnScheduleDelayRequestSample;

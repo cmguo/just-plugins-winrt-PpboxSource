@@ -606,6 +606,7 @@ PpboxMediaSource::PpboxMediaSource(HRESULT& hr) :
     m_pSampleRequest(NULL),
 	m_bLive(FALSE),
     m_uDuration(0),
+	m_uTime(0),
     m_OnScheduleDelayRequestSample(this, &PpboxMediaSource::OnScheduleDelayRequestSample),
     m_keyScheduleDelayRequestSample(0)
 {
@@ -1191,6 +1192,7 @@ HRESULT PpboxMediaSource::SelectStreams(
     {
         hr = PPBOX_Seek((PP_uint32)(varStart->hVal.QuadPart / 10000));
         if (hr == ppbox_success || hr == ppbox_would_block) {
+			m_uTime = varStart->hVal.QuadPart;
             hr = S_OK;
         } else {
             hr = E_FAIL;
@@ -1199,7 +1201,7 @@ HRESULT PpboxMediaSource::SelectStreams(
     else
     {
         varStart->vt = VT_I8;
-        varStart->hVal.QuadPart = 0;
+        varStart->hVal.QuadPart = m_uTime;
     }
 
     if (FAILED(hr))
@@ -1426,9 +1428,9 @@ HRESULT PpboxMediaSource::DeliverPayload()
     // Time stamp the sample.
     if (SUCCEEDED(hr))
     {
-        LONGLONG hnsStart = (sample.decode_time + sample.composite_time_delta);
-
-        hr = pSample->SetSampleTime(hnsStart);
+        m_uTime = (sample.decode_time + sample.composite_time_delta);
+		
+        hr = pSample->SetSampleTime(m_uTime);
     }
 
     // Deliver the payload to the stream.
