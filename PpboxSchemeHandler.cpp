@@ -19,7 +19,7 @@
 
 #include <atlconv.h>
 
-#include "ppbox/ppbox.h"
+#include "plugins/ppbox/ppbox.h"
 
 //-------------------------------------------------------------------
 // PpboxByteStreamHandler  class

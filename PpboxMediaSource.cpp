@@ -19,7 +19,7 @@
 #include <wmcodecdsp.h>
 
 #define PPBOX_EXTERN
-#include "ppbox/ppbox.h"
+#include "plugins/ppbox/ppbox.h"
 //-------------------------------------------------------------------
 //
 // Notes:
