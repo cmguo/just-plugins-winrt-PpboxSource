@@ -95,7 +95,16 @@ HRESULT PpboxSchemeHandler::BeginCreateObject(
 		*ppIUnknownCancelCookie = pResult;
 		(*ppIUnknownCancelCookie)->AddRef();
 
-        LPCSTR pszPlaylink = W2A(pwszURL);
+        LPSTR pszPlaylink = W2A(pwszURL);
+        if (strncmp(pszPlaylink, "identify:", 9) == 0) {
+            char const * p = strchr(pszPlaylink, '#');
+            ++p;
+            int l = strlen(p);
+            char * q = pszPlaylink = pszPlaylink + 8 - l;
+            strcpy_s(q, l + 1, p);
+            q[l] = ':';
+        }
+
 		AddRef();
         PPBOX_AsyncOpenEx(
 			pszPlaylink, 
