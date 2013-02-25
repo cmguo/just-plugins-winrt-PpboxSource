@@ -1371,7 +1371,7 @@ HRESULT PpboxMediaSource::DeliverPayload()
         //hr = MFScheduleWorkItem(&m_OnScheduleDelayRequestSample, NULL, -100, NULL);
         //return hr;
 		if (m_keyScheduleDelayRequestSample == 0) {
-			OutputDebugString(L"[DeliverPayload] would block\r\n");
+			//OutputDebugString(L"[DeliverPayload] would block\r\n");
 			m_keyScheduleDelayRequestSample = 
 				PPBOX_ScheduleCallback(100, &m_OnScheduleDelayRequestSample, OnPpboxTimer);
 		}
@@ -1645,7 +1645,7 @@ HRESULT PpboxMediaSource::OnScheduleDelayRequestSample(IMFAsyncResult *pResult)
         StreamingError(hr);
     }
 
-	OutputDebugString(L"OnScheduleDelayRequestSample\r\n");
+	//OutputDebugString(L"OnScheduleDelayRequestSample\r\n");
 
     hr = QueueAsyncOperation(SourceOp::OP_REQUEST_DATA);
 
