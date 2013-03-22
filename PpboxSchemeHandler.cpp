@@ -97,8 +97,8 @@ HRESULT PpboxSchemeHandler::BeginCreateObject(
 
         LPSTR pszPlaylink = W2A(pwszURL);
         if (strncmp(pszPlaylink, "identify:", 9) == 0) {
-            char const * p = strchr(pszPlaylink, '#');
-            ++p;
+            char * p = strchr(pszPlaylink, '#');
+            *p++ = 0;
             int l = strlen(p);
             char * q = pszPlaylink = pszPlaylink + 8 - l;
             strcpy_s(q, l + 1, p);
