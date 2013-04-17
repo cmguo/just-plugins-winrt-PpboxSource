@@ -1895,8 +1895,8 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfoEx& info, IMFMediaType **ppTy
     wf->wFormatTag = WAVE_FORMAT_WMAUDIO2;
     wf->nChannels = info.audio_format.channel_count;
     wf->nSamplesPerSec = info.audio_format.sample_rate;
-    wf->nAvgBytesPerSec = 0;
-    wf->nBlockAlign = 1;
+    wf->nAvgBytesPerSec = 3995;
+    wf->nBlockAlign = 742;
     wf->wBitsPerSample = info.audio_format.sample_size;
     wf->cbSize = info.format_size;
     memcpy(wf + 1, info.format_buffer, info.format_size);
