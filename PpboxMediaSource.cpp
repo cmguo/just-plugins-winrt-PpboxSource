@@ -1813,33 +1813,47 @@ HRESULT CreateVideoMediaType(const PPBOX_StreamInfoEx& info, IMFMediaType **ppTy
 
     if (SUCCEEDED(hr))
     {
-        hr = pType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_H264);
+        if (info.sub_type == ppbox_video_avc)
+            hr = pType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_H264);
+        else
+            hr = pType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_WMV3);
     }
 
     // Format details.
-    //if (SUCCEEDED(hr))
-    //{
-    //    // Frame size
+    if (SUCCEEDED(hr))
+    {
+        // Frame size
 
-    //    hr = MFSetAttributeSize(
-    //        pType,
-    //        MF_MT_FRAME_SIZE,
-    //        info.video_format.width,
-    //        info.video_format.height
-    //        );
-    //}
+        hr = MFSetAttributeSize(
+            pType,
+            MF_MT_FRAME_SIZE,
+            info.video_format.width,
+            info.video_format.height
+            );
+    }
 
-    //if (SUCCEEDED(hr))
-    //{
-    //    // Frame rate
+    if (SUCCEEDED(hr))
+    {
+        // Frame rate
 
-    //    hr = MFSetAttributeRatio(
-    //        pType,
-    //        MF_MT_FRAME_RATE,
-    //        info.video_format.frame_rate,
-    //        1
-    //        );
-    //}
+        hr = MFSetAttributeRatio(
+            pType,
+            MF_MT_FRAME_RATE,
+            info.video_format.frame_rate,
+            1
+            );
+    }
+
+    if (SUCCEEDED(hr))
+    {
+        // foramt data
+
+        hr = pType->SetBlob(
+            MF_MT_USER_DATA,
+            info.format_buffer,
+            info.format_size
+            );
+    }
 
     if (SUCCEEDED(hr))
     {
@@ -1866,6 +1880,7 @@ HRESULT CreateVideoMediaType(const PPBOX_StreamInfoEx& info, IMFMediaType **ppTy
 // the struct is stored in the MF_MT_USER_DATA attribute.
 //-------------------------------------------------------------------
 /*
+HRESULT LogMediaType(IMFMediaType *pType);
 HRESULT CreateAudioMediaType(const PPBOX_StreamInfoEx& info, IMFMediaType **ppType)
 {
     HRESULT hr = S_OK;
@@ -1877,12 +1892,12 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfoEx& info, IMFMediaType **ppTy
         return(E_OUTOFMEMORY);
     memset(wf, 0, dwSize);
 
-    wf->wFormatTag = WAVE_FORMAT_RAW_AAC1;
+    wf->wFormatTag = WAVE_FORMAT_WMAUDIO2;
     wf->nChannels = info.audio_format.channel_count;
     wf->nSamplesPerSec = info.audio_format.sample_rate;
-    wf->nAvgBytesPerSec = 64000;
+    wf->nAvgBytesPerSec = 0;
     wf->nBlockAlign = 1;
-    wf->wBitsPerSample = 0;//info.audio_format.sample_size;
+    wf->wBitsPerSample = info.audio_format.sample_size;
     wf->cbSize = info.format_size;
     memcpy(wf + 1, info.format_buffer, info.format_size);
 
@@ -1898,6 +1913,8 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfoEx& info, IMFMediaType **ppTy
         *ppType = pType;
         (*ppType)->AddRef();
     }
+    
+    LogMediaType(pType);
 
     SafeRelease(&pType);
     return hr;
@@ -2007,7 +2024,12 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfoEx& info, IMFMediaType **ppTy
     // Subtype = Ppbox payload
     if (SUCCEEDED(hr))
     {
-        hr = pType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_AAC);
+        if (info.sub_type == ppbox_audio_aac)
+            hr = pType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_AAC);
+        else if (info.sub_type == ppbox_audio_mp3)
+            hr = pType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_MP3);
+        else
+            hr = pType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_WMAudioV8);
     }
 
     // Format details.
@@ -2038,36 +2060,52 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfoEx& info, IMFMediaType **ppTy
             info.audio_format.sample_rate
             );
     }
-    if (SUCCEEDED(hr))
-    {
-        hr = pType->SetUINT32(
-            MF_MT_AAC_AUDIO_PROFILE_LEVEL_INDICATION,
-            0x29
-            );
-    }
-    if (SUCCEEDED(hr))
-    {
-        hr = pType->SetUINT32(
-            MF_MT_AAC_PAYLOAD_TYPE,
-            0
-            );
-    }
+
     if (SUCCEEDED(hr))
     {
         // foramt data
-		struct {
-			HEAACWAVEFORMAT format;
-			char aac_config_data_pad[256];
-		} format;
-
-		Fill_HEAACWAVEFORMAT(info, &format.format);
 
         hr = pType->SetBlob(
             MF_MT_USER_DATA,
-            (UINT8 const *)&format.format.wfInfo.wPayloadType,
-            sizeof(HEAACWAVEINFO) - sizeof(WAVEFORMATEX) + info.format_size
+            info.format_buffer,
+            info.format_size
             );
     }
+
+    if (info.sub_type == ppbox_audio_aac)
+    {
+        if (SUCCEEDED(hr))
+        {
+            hr = pType->SetUINT32(
+                MF_MT_AAC_AUDIO_PROFILE_LEVEL_INDICATION,
+                0x29
+                );
+        }
+        if (SUCCEEDED(hr))
+        {
+            hr = pType->SetUINT32(
+                MF_MT_AAC_PAYLOAD_TYPE,
+                0
+                );
+        }
+        if (SUCCEEDED(hr))
+        {
+            // foramt data
+		    struct {
+			    HEAACWAVEFORMAT format;
+			    char aac_config_data_pad[256];
+		    } format;
+
+		    Fill_HEAACWAVEFORMAT(info, &format.format);
+
+            hr = pType->SetBlob(
+                MF_MT_USER_DATA,
+                (UINT8 const *)&format.format.wfInfo.wPayloadType,
+                sizeof(HEAACWAVEINFO) - sizeof(WAVEFORMATEX) + info.format_size
+                );
+        }
+    } // if (info.sub_type == ppbox_audio_aac)
+
     if (SUCCEEDED(hr))
     {
         *ppType = pType;
