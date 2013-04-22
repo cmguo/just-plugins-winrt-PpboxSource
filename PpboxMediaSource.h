@@ -23,41 +23,16 @@
 #define _ASSERTE assert
 #endif
 
-#include <mftransform.h>
-
 #include <mfapi.h>
 #include <mfobjects.h>
 #include <mfidl.h>
 #include <mferror.h>
-#include <uuids.h>      // Ppbox subtypes
-
-#include <amvideo.h>    // VIDEOINFOHEADER definition
-#include <dvdmedia.h>   // VIDEOINFOHEADER2
-#include <mmreg.h>      // PpboxWAVEFORMAT
-#include <shlwapi.h>
 
 #pragma comment(lib, "mfplat")
 #pragma comment(lib, "mfuuid")      // Media Foundation GUIDs
-//#pragma comment(lib, "strmiids")    // DirectShow GUIDs
-//#pragma comment(lib, "Ws2_32")      // htonl, etc
-//#pragma comment(lib, "shlwapi")
 
-// Common sample files.
-#include "linklist.h"
-
-#include "asynccb.h"
 #include "OpQueue.h"
-
-
-template <class T> void SafeRelease(T **ppT)
-{
-    if (*ppT)
-    {
-        (*ppT)->Release();
-        *ppT = NULL;
-    }
-}
-
+#include "SourceOp.h"
 
 // Forward declares
 class PpboxSchemeHandler;
@@ -89,56 +64,6 @@ const UINT32 MAX_STREAMS = 32;
 const DWORD INITIAL_BUFFER_SIZE = 4 * 1024; // Initial size of the read buffer. (The buffer expands dynamically.)
 const DWORD READ_SIZE = 4 * 1024;           // Size of each read request.
 const DWORD SAMPLE_QUEUE = 2;               // How many samples does each stream try to hold in its queue?
-
-// Represents a request for an asynchronous operation.
-
-class SourceOp : public IUnknown
-{
-public:
-
-    enum Operation
-    {
-        OP_START,
-        OP_PAUSE,
-        OP_STOP,
-        OP_REQUEST_DATA,
-        OP_END_OF_STREAM
-    };
-
-    static HRESULT CreateOp(Operation op, SourceOp **ppOp);
-    static HRESULT CreateStartOp(IMFPresentationDescriptor *pPD, SourceOp **ppOp);
-
-    // IUnknown
-    STDMETHODIMP QueryInterface(REFIID iid, void** ppv);
-    STDMETHODIMP_(ULONG) AddRef();
-    STDMETHODIMP_(ULONG) Release();
-
-    SourceOp(Operation op);
-    virtual ~SourceOp();
-
-    HRESULT SetData(const PROPVARIANT& var);
-
-    Operation Op() const { return m_op; }
-    PROPVARIANT& Data() { return m_data;}
-
-protected:
-    long        m_cRef;     // Reference count.
-    Operation   m_op;
-    PROPVARIANT m_data;     // Data for the operation.
-};
-
-class StartOp : public SourceOp
-{
-public:
-    StartOp(IMFPresentationDescriptor *pPD);
-    ~StartOp();
-
-    HRESULT GetPresentationDescriptor(IMFPresentationDescriptor **ppPD);
-
-protected:
-    IMFPresentationDescriptor   *m_pPD; // Presentation descriptor for Start operations.
-};
-
 
 // PpboxMediaSource: The media source object.
 class PpboxMediaSource : public OpQueue<SourceOp>, public IMFMediaSource

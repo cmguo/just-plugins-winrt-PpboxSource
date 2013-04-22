@@ -14,6 +14,7 @@
 
 #include "StdAfx.h"
 #include "PpboxMediaSource.h"
+#include "SafeRelease.h"
 
 #pragma warning( push )
 #pragma warning( disable : 4355 )  // 'this' used in base member initializer list

@@ -17,6 +17,8 @@
 #include "PpboxMediaSource.h"
 #include "PpboxSchemeHandler.h"
 
+#include "SafeRelease.h"
+
 #include <atlconv.h>
 
 #include "plugins/ppbox/ppbox.h"
