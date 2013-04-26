@@ -337,7 +337,7 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
                 sizeof(HEAACWAVEINFO) - sizeof(WAVEFORMATEX) + info.format_size
                 );
         }
-    } // if (info.sub_type == ppbox_audio_aac)
+    } // if (info.sub_type == PPBOX_AudioSubType::MP4A)
 
     if (SUCCEEDED(hr))
     {
