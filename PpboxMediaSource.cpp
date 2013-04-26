@@ -21,7 +21,6 @@
 #include "SafeRelease.h"
 #include "SourceOp.h"
 
-#define PPBOX_EXTERN
 #include "plugins/ppbox/ppbox.h"
 #include "PpboxMediaType.h"
 //-------------------------------------------------------------------
@@ -1340,13 +1339,13 @@ HRESULT PpboxMediaSource::DeliverPayload()
     // payload, and the payload belongs to a stream whose type we support.
 
     HRESULT             hr = S_OK;
-    PPBOX_SampleEx2     sample;
+    PPBOX_Sample        sample;
 
     IMFMediaBuffer      *pBuffer = NULL;
     IMFSample           *pSample = NULL;
     BYTE                *pData = NULL;      // Pointer to the IMFMediaBuffer data.
 
-    hr = PPBOX_ReadSampleEx2(&sample);
+    hr = PPBOX_ReadSample(&sample);
 
     if (hr == ppbox_success)
     {
@@ -1378,7 +1377,7 @@ HRESULT PpboxMediaSource::DeliverPayload()
     // Create a media buffer for the payload.
     if (SUCCEEDED(hr))
     {
-		hr = MFCreateMemoryBuffer(sample.buffer_length, &pBuffer);
+		hr = MFCreateMemoryBuffer(sample.length, &pBuffer);
     }
 
     if (SUCCEEDED(hr))
@@ -1388,7 +1387,7 @@ HRESULT PpboxMediaSource::DeliverPayload()
 
     if (SUCCEEDED(hr))
     {
-        CopyMemory(pData, sample.buffer, sample.buffer_length);
+        CopyMemory(pData, sample.buffer, sample.length);
     }
 
     if (SUCCEEDED(hr))
@@ -1398,7 +1397,7 @@ HRESULT PpboxMediaSource::DeliverPayload()
 
     if (SUCCEEDED(hr))
     {
-        hr = pBuffer->SetCurrentLength(sample.buffer_length);
+        hr = pBuffer->SetCurrentLength(sample.length);
     }
 
     // Create a sample to hold the buffer.
@@ -1422,9 +1421,9 @@ HRESULT PpboxMediaSource::DeliverPayload()
     // Deliver the payload to the stream.
     if (SUCCEEDED(hr))
     {
-        assert(sample.stream_index < m_stream_number);
-		if (m_streams[sample.stream_index]->IsActive())
-			hr = m_streams[sample.stream_index]->DeliverPayload(pSample);
+        assert(sample.itrack < m_stream_number);
+		if (m_streams[sample.itrack]->IsActive())
+			hr = m_streams[sample.itrack]->DeliverPayload(pSample);
     }
 
     if (SUCCEEDED(hr))
@@ -1456,22 +1455,22 @@ HRESULT PpboxMediaSource::CreateStream(long stream_id)
 {
     HRESULT hr = S_OK;
 
-    PPBOX_StreamInfoEx info;
+    PPBOX_StreamInfo info;
 
     IMFMediaType *pType = NULL;
     IMFStreamDescriptor *pSD = NULL;
     PpboxMediaStream *pStream = NULL;
     IMFMediaTypeHandler *pHandler = NULL;
 
-    PPBOX_GetStreamInfoEx(stream_id, &info);
+    PPBOX_GetStreamInfo(stream_id, &info);
 
     switch (info.type)
     {
-    case ppbox_video:
+    case PPBOX_StreamType::VIDE:
         hr = CreateVideoMediaType(info, &pType);
         break;
 
-    case ppbox_audio:
+    case PPBOX_StreamType::AUDI:
         hr = CreateAudioMediaType(info, &pType);
         break;
 

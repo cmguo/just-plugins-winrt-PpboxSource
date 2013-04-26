@@ -14,14 +14,14 @@
 
 
 #include "StdAfx.h"
-#include "PpboxMediaType.h"
 #include <InitGuid.h>
 #include <wmcodecdsp.h>
 
 #include "SafeRelease.h"
 
-#define PPBOX_EXTERN
+#define PPBOX_IMPORT_FUNC
 #include "plugins/ppbox/ppbox.h"
+#include "PpboxMediaType.h"
 
 
 /*  Static functions */
@@ -31,7 +31,7 @@
 // Create a media type from an Ppbox video sequence header.
 //-------------------------------------------------------------------
 
-HRESULT CreateVideoMediaType(const PPBOX_StreamInfoEx& info, IMFMediaType **ppType)
+HRESULT CreateVideoMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType)
 {
     HRESULT hr = S_OK;
 
@@ -46,7 +46,7 @@ HRESULT CreateVideoMediaType(const PPBOX_StreamInfoEx& info, IMFMediaType **ppTy
 
     if (SUCCEEDED(hr))
     {
-        if (info.sub_type == ppbox_video_avc)
+        if (info.sub_type == PPBOX_VideoSubType::AVC1)
             hr = pType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_H264);
         else
             hr = pType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_WMV3);
@@ -114,7 +114,7 @@ HRESULT CreateVideoMediaType(const PPBOX_StreamInfoEx& info, IMFMediaType **ppTy
 //-------------------------------------------------------------------
 /*
 HRESULT LogMediaType(IMFMediaType *pType);
-HRESULT CreateAudioMediaType(const PPBOX_StreamInfoEx& info, IMFMediaType **ppType)
+HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType)
 {
     HRESULT hr = S_OK;
     IMFMediaType *pType = NULL;
@@ -155,7 +155,7 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfoEx& info, IMFMediaType **ppTy
 //*/
 /*
 DEFINE_GUID(MEDIASUBTYPE_RAW_AAC1, 0x000000FF, 0x0000, 0x0010, 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71);
-HRESULT CreateAudioMediaType(const PPBOX_StreamInfoEx& info, IMFMediaType **ppType)
+HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType)
 {
     HRESULT hr = S_OK;
     IMFMediaType *pType = NULL;
@@ -222,7 +222,7 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfoEx& info, IMFMediaType **ppTy
 }
 //*/
 //*
-HRESULT Fill_HEAACWAVEFORMAT(const PPBOX_StreamInfoEx& info, PHEAACWAVEFORMAT format)
+HRESULT Fill_HEAACWAVEFORMAT(const PPBOX_StreamInfo& info, PHEAACWAVEFORMAT format)
 {
     PWAVEFORMATEX wf = &format->wfInfo.wfx;
     wf->wFormatTag = WAVE_FORMAT_MPEG_HEAAC;
@@ -242,7 +242,7 @@ HRESULT Fill_HEAACWAVEFORMAT(const PPBOX_StreamInfoEx& info, PHEAACWAVEFORMAT fo
 	return S_OK;
 }
 
-HRESULT CreateAudioMediaType(const PPBOX_StreamInfoEx& info, IMFMediaType **ppType)
+HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType)
 {
     HRESULT hr = S_OK;
     IMFMediaType *pType = NULL;
@@ -257,9 +257,9 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfoEx& info, IMFMediaType **ppTy
     // Subtype = Ppbox payload
     if (SUCCEEDED(hr))
     {
-        if (info.sub_type == ppbox_audio_aac)
+        if (info.sub_type == PPBOX_AudioSubType::MP4A)
             hr = pType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_AAC);
-        else if (info.sub_type == ppbox_audio_mp3)
+        else if (info.sub_type == PPBOX_AudioSubType::MP1A)
             hr = pType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_MP3);
         else
             hr = pType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_WMAudioV8);
@@ -305,7 +305,7 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfoEx& info, IMFMediaType **ppTy
             );
     }
 
-    if (info.sub_type == ppbox_audio_aac)
+    if (info.sub_type == PPBOX_AudioSubType::MP4A)
     {
         if (SUCCEEDED(hr))
         {
@@ -346,5 +346,68 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfoEx& info, IMFMediaType **ppTy
     }
 
     SafeRelease(&pType);
+    return hr;
+}
+
+
+HRESULT CreateSample(PPBOX_Sample const & sample, IMFSample **ppSample)
+{
+    HRESULT hr = S_OK;
+    IMFMediaBuffer      *pBuffer = NULL;
+    IMFSample           *pSample = NULL;
+    BYTE                *pData = NULL;      // Pointer to the IMFMediaBuffer data.
+
+    // Create a media buffer for the payload.
+    if (SUCCEEDED(hr))
+    {
+		hr = MFCreateMemoryBuffer(sample.length, &pBuffer);
+    }
+
+    if (SUCCEEDED(hr))
+    {
+        hr = pBuffer->Lock(&pData, NULL, NULL);
+    }
+
+    if (SUCCEEDED(hr))
+    {
+        CopyMemory(pData, sample.buffer, sample.length);
+    }
+
+    if (SUCCEEDED(hr))
+    {
+        hr = pBuffer->Unlock();
+    }
+
+    if (SUCCEEDED(hr))
+    {
+        hr = pBuffer->SetCurrentLength(sample.length);
+    }
+
+    // Create a sample to hold the buffer.
+    if (SUCCEEDED(hr))
+    {
+        hr = MFCreateSample(&pSample);
+    }
+    if (SUCCEEDED(hr))
+    {
+        hr = pSample->AddBuffer(pBuffer);
+    }
+
+    // Time stamp the sample.
+    if (SUCCEEDED(hr))
+    {
+        INT64 time = (sample.decode_time + sample.composite_time_delta);
+        hr = pSample->SetSampleTime(time);
+    }
+
+    if (SUCCEEDED(hr))
+    {
+        *ppSample = pSample;
+        (*ppSample)->AddRef();
+    }
+
+    SafeRelease(&pBuffer);
+    SafeRelease(&pSample);
+
     return hr;
 }
