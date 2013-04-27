@@ -20,6 +20,7 @@
 
 #include "SafeRelease.h"
 #include "SourceOp.h"
+#include "Trace.h"
 
 #include "plugins/ppbox/ppbox.h"
 #include "PpboxMediaType.h"
@@ -1377,7 +1378,7 @@ HRESULT PpboxMediaSource::DeliverPayload()
     // Create a media buffer for the payload.
     if (SUCCEEDED(hr))
     {
-		hr = MFCreateMemoryBuffer(sample.length, &pBuffer);
+		hr = MFCreateMemoryBuffer(sample.size, &pBuffer);
     }
 
     if (SUCCEEDED(hr))
@@ -1387,7 +1388,7 @@ HRESULT PpboxMediaSource::DeliverPayload()
 
     if (SUCCEEDED(hr))
     {
-        CopyMemory(pData, sample.buffer, sample.length);
+        CopyMemory(pData, sample.buffer, sample.size);
     }
 
     if (SUCCEEDED(hr))
@@ -1397,7 +1398,7 @@ HRESULT PpboxMediaSource::DeliverPayload()
 
     if (SUCCEEDED(hr))
     {
-        hr = pBuffer->SetCurrentLength(sample.length);
+        hr = pBuffer->SetCurrentLength(sample.size);
     }
 
     // Create a sample to hold the buffer.
