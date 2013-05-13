@@ -21,7 +21,7 @@
 
 #include <atlconv.h>
 
-#include "plugins/ppbox/ppbox.h"
+#include <plugins/ppbox/ppbox_dynamic.h>
 
 //-------------------------------------------------------------------
 // PpboxByteStreamHandler  class

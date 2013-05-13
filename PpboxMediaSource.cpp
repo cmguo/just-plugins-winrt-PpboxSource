@@ -22,7 +22,7 @@
 #include "SourceOp.h"
 #include "Trace.h"
 
-#include "plugins/ppbox/ppbox.h"
+#include <plugins/ppbox/ppbox_dynamic.h>
 #include "PpboxMediaType.h"
 //-------------------------------------------------------------------
 //
@@ -1467,11 +1467,11 @@ HRESULT PpboxMediaSource::CreateStream(long stream_id)
 
     switch (info.type)
     {
-    case PPBOX_StreamType::VIDE:
+    case PPBOX_StreamType_VIDE:
         hr = CreateVideoMediaType(info, &pType);
         break;
 
-    case PPBOX_StreamType::AUDI:
+    case PPBOX_StreamType_AUDI:
         hr = CreateAudioMediaType(info, &pType);
         break;
 

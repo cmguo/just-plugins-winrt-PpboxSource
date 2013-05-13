@@ -20,7 +20,7 @@
 #include "SafeRelease.h"
 
 #define PPBOX_IMPORT_FUNC
-#include "plugins/ppbox/ppbox.h"
+#include <plugins/ppbox/ppbox_dynamic.h>
 #include "PpboxMediaType.h"
 
 
