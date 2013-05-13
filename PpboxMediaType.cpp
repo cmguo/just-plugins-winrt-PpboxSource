@@ -46,7 +46,7 @@ HRESULT CreateVideoMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
 
     if (SUCCEEDED(hr))
     {
-        if (info.sub_type == PPBOX_VideoSubType::AVC1)
+        if (info.sub_type == PPBOX_VideoSubType_AVC1)
             hr = pType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_H264);
         else
             hr = pType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_WMV3);
@@ -257,9 +257,9 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
     // Subtype = Ppbox payload
     if (SUCCEEDED(hr))
     {
-        if (info.sub_type == PPBOX_AudioSubType::MP4A)
+        if (info.sub_type == PPBOX_AudioSubType_MP4A)
             hr = pType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_AAC);
-        else if (info.sub_type == PPBOX_AudioSubType::MP1A)
+        else if (info.sub_type == PPBOX_AudioSubType_MP1A)
             hr = pType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_MP3);
         else
             hr = pType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_WMAudioV8);
@@ -305,7 +305,7 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
             );
     }
 
-    if (info.sub_type == PPBOX_AudioSubType::MP4A)
+    if (info.sub_type == PPBOX_AudioSubType_MP4A)
     {
         if (SUCCEEDED(hr))
         {
@@ -337,7 +337,7 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
                 sizeof(HEAACWAVEINFO) - sizeof(WAVEFORMATEX) + info.format_size
                 );
         }
-    } // if (info.sub_type == PPBOX_AudioSubType::MP4A)
+    } // if (info.sub_type == PPBOX_AudioSubType_MP4A)
 
     if (SUCCEEDED(hr))
     {
