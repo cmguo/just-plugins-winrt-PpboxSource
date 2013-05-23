@@ -679,7 +679,7 @@ HRESULT PpboxMediaSource::InitPresentationDescriptor()
     assert(m_pPresentationDescriptor == NULL);
 
     m_uDuration = PPBOX_GetDuration();
-	m_bLive = m_uDuration == (PP_uint32)-1;
+	m_bLive = m_uDuration == (PP_uint)-1;
     m_uDuration *= 10000;
 
 	m_stream_number = PPBOX_GetStreamCount();
@@ -1176,7 +1176,7 @@ HRESULT PpboxMediaSource::SelectStreams(
 
     if (varStart->vt == VT_I8 && !m_bLive)
     {
-        hr = PPBOX_Seek((PP_uint32)(varStart->hVal.QuadPart / 10000));
+        hr = PPBOX_Seek((PP_uint)(varStart->hVal.QuadPart / 10000));
         if (hr == ppbox_success || hr == ppbox_would_block) {
 			m_uTime = varStart->hVal.QuadPart;
             hr = S_OK;
@@ -1322,7 +1322,7 @@ BOOL PpboxMediaSource::StreamsNeedData() const
 }
 
 static void OnPpboxTimer(
-	void * callback, 
+	PP_context callback, 
 	PP_err result)
 {
 	AsyncCallback<PpboxMediaSource> * async_callback = (AsyncCallback<PpboxMediaSource> *)callback;

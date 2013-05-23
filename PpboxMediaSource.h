@@ -173,7 +173,7 @@ private:
     // Async callback helper.
     AsyncCallback<PpboxMediaSource>  m_OnScheduleDelayRequestSample;
     //MFWORKITEM_KEY              m_keyScheduleDelayRequestSample;
-	void *						m_keyScheduleDelayRequestSample;
+	void const *				m_keyScheduleDelayRequestSample;
 };
 
 
