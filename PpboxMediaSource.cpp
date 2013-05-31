@@ -22,7 +22,6 @@
 #include "SourceOp.h"
 #include "Trace.h"
 
-#include <plugins/ppbox/ppbox_runtime.h>
 #include "PpboxMediaType.h"
 //-------------------------------------------------------------------
 //

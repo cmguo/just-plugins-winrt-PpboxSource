@@ -67,7 +67,7 @@ public:
         /* [in] */ IUnknown *pIUnknownCancelCookie);
 
 private:
-    static void __cdecl StaticOpenCallback(void const * user, long err);
+    static void __cdecl StaticOpenCallback(PP_context user, PP_err err);
 
     void OpenCallback(HRESULT hr);
 
