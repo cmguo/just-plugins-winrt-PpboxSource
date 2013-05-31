@@ -118,7 +118,7 @@ HRESULT PpboxSchemeHandler::BeginCreateObject(
     return hr;
 }
 
-void __cdecl PpboxSchemeHandler::StaticOpenCallback(void * user, long err)
+void __cdecl PpboxSchemeHandler::StaticOpenCallback(PP_context user, PP_err err)
 {
 	PpboxSchemeHandler * inst = (PpboxSchemeHandler *)user;
     if (err != ppbox_success && err != ppbox_already_open && err != ppbox_operation_canceled)
