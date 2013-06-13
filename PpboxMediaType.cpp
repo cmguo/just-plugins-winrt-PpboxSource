@@ -70,8 +70,8 @@ HRESULT CreateVideoMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
         hr = MFSetAttributeRatio(
             pType,
             MF_MT_FRAME_RATE,
-            info.video_format.frame_rate,
-            1
+            info.video_format.frame_rate_num,
+            info.video_format.frame_rate_den
             );
     }
 
