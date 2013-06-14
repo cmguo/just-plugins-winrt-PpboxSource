@@ -1365,7 +1365,7 @@ HRESULT PpboxMediaSource::DeliverPayload()
     }
     else if (hr == ppbox_stream_end)
     {
-        hr = EndOfStream();
+        hr = EndOfPpboxStream();
         return hr;
     }
     else
