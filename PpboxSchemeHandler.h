@@ -72,6 +72,7 @@ private:
     void OpenCallback(HRESULT hr);
 
     long            m_cRef; // reference count
+    ABI::Windows::Foundation::Collections::IPropertySet *m_pConfiguration;
     PpboxMediaSource     *m_pSource;
     IMFAsyncResult  *m_pResult;
 };

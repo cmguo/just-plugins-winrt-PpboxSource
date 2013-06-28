@@ -44,7 +44,7 @@ HRESULT CreateVideoMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
 
     if (SUCCEEDED(hr))
     {
-        if (info.sub_type == PPBOX_VideoSubType_AVC1)
+        if (info.sub_type == PPBOX_VideoSubType::AVC1)
             hr = pType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_H264);
         else
             hr = pType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_WMV3);
@@ -58,8 +58,8 @@ HRESULT CreateVideoMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
         hr = MFSetAttributeSize(
             pType,
             MF_MT_FRAME_SIZE,
-            info.video_format.width,
-            info.video_format.height
+            info.format.video.width,
+            info.format.video.height
             );
     }
 
@@ -70,8 +70,8 @@ HRESULT CreateVideoMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
         hr = MFSetAttributeRatio(
             pType,
             MF_MT_FRAME_RATE,
-            info.video_format.frame_rate_num,
-            info.video_format.frame_rate_den
+            info.format.video.frame_rate_num,
+            info.format.video.frame_rate_den
             );
     }
 
@@ -124,11 +124,11 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
     memset(wf, 0, dwSize);
 
     wf->wFormatTag = WAVE_FORMAT_WMAUDIO2;
-    wf->nChannels = info.audio_format.channel_count;
-    wf->nSamplesPerSec = info.audio_format.sample_rate;
+    wf->nChannels = info.format.audio.channel_count;
+    wf->nSamplesPerSec = info.format.audio.sample_rate;
     wf->nAvgBytesPerSec = 3995;
     wf->nBlockAlign = 742;
-    wf->wBitsPerSample = info.audio_format.sample_size;
+    wf->wBitsPerSample = info.format.audio.sample_size;
     wf->cbSize = info.format_size;
     memcpy(wf + 1, info.format_buffer, info.format_size);
 
@@ -178,7 +178,7 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
 
         hr = pType->SetUINT32(
             MF_MT_AUDIO_BITS_PER_SAMPLE,
-            info.audio_format.sample_size
+            info.format.audio.sample_size
             );
     }
     if (SUCCEEDED(hr))
@@ -187,7 +187,7 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
 
         hr = pType->SetUINT32(
             MF_MT_AUDIO_NUM_CHANNELS,
-            info.audio_format.channel_count
+            info.format.audio.channel_count
             );
     }
     if (SUCCEEDED(hr))
@@ -196,7 +196,7 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
 
         hr = pType->SetUINT32(
             MF_MT_AUDIO_SAMPLES_PER_SECOND,
-            info.audio_format.sample_rate
+            info.format.audio.sample_rate
             );
     }
     if (SUCCEEDED(hr))
@@ -224,11 +224,11 @@ HRESULT Fill_HEAACWAVEFORMAT(const PPBOX_StreamInfo& info, PHEAACWAVEFORMAT form
 {
     PWAVEFORMATEX wf = &format->wfInfo.wfx;
     wf->wFormatTag = WAVE_FORMAT_MPEG_HEAAC;
-    wf->nChannels = (WORD)info.audio_format.channel_count;
-    wf->nSamplesPerSec = info.audio_format.sample_rate;
+    wf->nChannels = (WORD)info.format.audio.channel_count;
+    wf->nSamplesPerSec = info.format.audio.sample_rate;
     wf->nAvgBytesPerSec = 0;
     wf->nBlockAlign = 1;
-    wf->wBitsPerSample = (WORD)info.audio_format.sample_size;
+    wf->wBitsPerSample = (WORD)info.format.audio.sample_size;
     wf->cbSize = (WORD)(sizeof(format->wfInfo) - sizeof(format->wfInfo.wfx) + info.format_size);
 	PHEAACWAVEINFO hawi = &format->wfInfo;
 	hawi->wPayloadType = 0; // The stream contains raw_data_block elements only. 
@@ -255,9 +255,9 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
     // Subtype = Ppbox payload
     if (SUCCEEDED(hr))
     {
-        if (info.sub_type == PPBOX_AudioSubType_MP4A)
+        if (info.sub_type == PPBOX_AudioSubType::MP4A)
             hr = pType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_AAC);
-        else if (info.sub_type == PPBOX_AudioSubType_MP1A)
+        else if (info.sub_type == PPBOX_AudioSubType::MP1A)
             hr = pType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_MP3);
         else
             hr = pType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_WMAudioV8);
@@ -270,7 +270,7 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
 
         hr = pType->SetUINT32(
             MF_MT_AUDIO_BITS_PER_SAMPLE,
-            info.audio_format.sample_size
+            info.format.audio.sample_size
             );
     }
     if (SUCCEEDED(hr))
@@ -279,7 +279,7 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
 
         hr = pType->SetUINT32(
             MF_MT_AUDIO_NUM_CHANNELS,
-            info.audio_format.channel_count
+            info.format.audio.channel_count
             );
     }
     if (SUCCEEDED(hr))
@@ -288,7 +288,7 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
 
         hr = pType->SetUINT32(
             MF_MT_AUDIO_SAMPLES_PER_SECOND,
-            info.audio_format.sample_rate
+            info.format.audio.sample_rate
             );
     }
 
@@ -303,7 +303,7 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
             );
     }
 
-    if (info.sub_type == PPBOX_AudioSubType_MP4A)
+    if (info.sub_type == PPBOX_AudioSubType::MP4A)
     {
         if (SUCCEEDED(hr))
         {
@@ -335,7 +335,7 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
                 sizeof(HEAACWAVEINFO) - sizeof(WAVEFORMATEX) + info.format_size
                 );
         }
-    } // if (info.sub_type == PPBOX_AudioSubType_MP4A)
+    } // if (info.sub_type == PPBOX_AudioSubType::MP4A)
 
     if (SUCCEEDED(hr))
     {

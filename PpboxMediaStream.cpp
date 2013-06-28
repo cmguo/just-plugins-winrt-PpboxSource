@@ -15,6 +15,7 @@
 #include "StdAfx.h"
 #include "PpboxMediaSource.h"
 #include "SafeRelease.h"
+#include "Trace.h"
 
 #pragma warning( push )
 #pragma warning( disable : 4355 )  // 'this' used in base member initializer list
@@ -90,7 +91,7 @@ HRESULT PpboxMediaStream::QueryInterface(REFIID riid, void** ppv)
         hr = S_OK;
     }
 
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 
@@ -113,7 +114,7 @@ HRESULT PpboxMediaStream::BeginGetEvent(IMFAsyncCallback* pCallback,IUnknown* pu
         hr = m_pEventQueue->BeginGetEvent(pCallback, punkState);
     }
 
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 HRESULT PpboxMediaStream::EndGetEvent(IMFAsyncResult* pResult, IMFMediaEvent** ppEvent)
@@ -129,7 +130,7 @@ HRESULT PpboxMediaStream::EndGetEvent(IMFAsyncResult* pResult, IMFMediaEvent** p
         hr = m_pEventQueue->EndGetEvent(pResult, ppEvent);
     }
 
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 HRESULT PpboxMediaStream::GetEvent(DWORD dwFlags, IMFMediaEvent** ppEvent)
@@ -160,7 +161,7 @@ HRESULT PpboxMediaStream::GetEvent(DWORD dwFlags, IMFMediaEvent** ppEvent)
     }
 
     SafeRelease(&pQueue);
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 HRESULT PpboxMediaStream::QueueEvent(MediaEventType met, REFGUID guidExtendedType, HRESULT hrStatus, const PROPVARIANT* pvValue)
@@ -176,7 +177,7 @@ HRESULT PpboxMediaStream::QueueEvent(MediaEventType met, REFGUID guidExtendedTyp
         hr = m_pEventQueue->QueueEventParamVar(met, guidExtendedType, hrStatus, pvValue);
     }
 
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 //-------------------------------------------------------------------
@@ -213,7 +214,7 @@ HRESULT PpboxMediaStream::GetMediaSource(IMFMediaSource** ppMediaSource)
     {
         hr = m_pSource->QueryInterface(IID_PPV_ARGS(ppMediaSource));
     }
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 
@@ -244,7 +245,7 @@ HRESULT PpboxMediaStream::GetStreamDescriptor(IMFStreamDescriptor** ppStreamDesc
         (*ppStreamDescriptor)->AddRef();
 
     };
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 
@@ -310,7 +311,7 @@ done:
         // unless the source is already shut down.
         hr = m_pSource->QueueEvent(MEError, GUID_NULL, hr, NULL);
     }
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 
@@ -417,7 +418,7 @@ HRESULT PpboxMediaStream::Start(const PROPVARIANT& varStart)
     {
         hr = DispatchSamples();
     }
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 
@@ -441,7 +442,7 @@ HRESULT PpboxMediaStream::Pause()
         hr = QueueEvent(MEStreamPaused, GUID_NULL, S_OK, NULL);
     }
 
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 
@@ -468,7 +469,7 @@ HRESULT PpboxMediaStream::Stop()
         hr = QueueEvent(MEStreamStopped, GUID_NULL, S_OK, NULL);
     }
 
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 
@@ -530,7 +531,7 @@ HRESULT PpboxMediaStream::Shutdown()
         // which breaks the circular ref count.
     }
 
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 
@@ -576,7 +577,7 @@ HRESULT PpboxMediaStream::DeliverPayload(IMFSample *pSample)
         hr = DispatchSamples();
     }
 
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 /* Private methods */

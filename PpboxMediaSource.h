@@ -66,16 +66,52 @@ const DWORD READ_SIZE = 4 * 1024;           // Size of each read request.
 const DWORD SAMPLE_QUEUE = 2;               // How many samples does each stream try to hold in its queue?
 
 // PpboxMediaSource: The media source object.
-class PpboxMediaSource : public OpQueue<SourceOp>, public IMFMediaSource
+class PpboxMediaSource 
+    : public OpQueue<SourceOp>
+    , public IInspectable
+    , public IMFGetService
+    , public IPropertyStore
+    , public IMFMediaSource
 {
 public:
     static HRESULT CreateInstance(PpboxMediaSource **ppSource);
+
+    IFACEMETHOD (SetProperties) (ABI::Windows::Foundation::Collections::IPropertySet *pConfiguration);
 
     // IUnknown
     STDMETHODIMP QueryInterface(REFIID iid, void** ppv);
     STDMETHODIMP_(ULONG) AddRef();
     STDMETHODIMP_(ULONG) Release();
 
+    // IInspectable
+    STDMETHODIMP GetIids( 
+        /* [out] */ __RPC__out ULONG *iidCount,
+        /* [size_is][size_is][out] */ __RPC__deref_out_ecount_full_opt(*iidCount) IID **iids);
+    STDMETHODIMP GetRuntimeClassName( 
+        /* [out] */ __RPC__deref_out_opt HSTRING *className);
+    STDMETHODIMP GetTrustLevel( 
+        /* [out] */ __RPC__out TrustLevel *trustLevel);
+
+    // IMFGetService
+    STDMETHODIMP GetService( 
+        /* [in] */ __RPC__in REFGUID guidService,
+        /* [in] */ __RPC__in REFIID riid,
+        /* [iid_is][out] */ __RPC__deref_out_opt LPVOID *ppvObject);
+
+    // IPropertyStore
+    STDMETHODIMP GetCount( 
+        /* [out] */ __RPC__out DWORD *cProps);
+    STDMETHODIMP GetAt( 
+        /* [in] */ DWORD iProp,
+        /* [out] */ __RPC__out PROPERTYKEY *pkey);
+    STDMETHODIMP GetValue( 
+        /* [in] */ __RPC__in REFPROPERTYKEY key,
+        /* [out] */ __RPC__out PROPVARIANT *pv);
+    STDMETHODIMP SetValue( 
+        /* [in] */ __RPC__in REFPROPERTYKEY key,
+        /* [in] */ __RPC__in REFPROPVARIANT propvar);
+    STDMETHODIMP Commit( void);
+        
     // IMFMediaEventGenerator
     STDMETHODIMP BeginGetEvent(IMFAsyncCallback* pCallback,IUnknown* punkState);
     STDMETHODIMP EndGetEvent(IMFAsyncResult* pResult, IMFMediaEvent** ppEvent);
@@ -151,8 +187,12 @@ private:
 private:
     long                        m_cRef;                     // reference count
 
+    typedef ABI::Windows::Foundation::Collections::IPropertySet StatMap;
+
     CRITICAL_SECTION            m_critSec;                  // critical section for thread safety
     SourceState                 m_state;                    // Current state (running, stopped, paused)
+
+    ComPtr<StatMap>             m_pStatMap;
 
     IMFMediaEventQueue          *m_pEventQueue;             // Event generator helper
     IMFPresentationDescriptor   *m_pPresentationDescriptor; // Presentation descriptor.
@@ -169,6 +209,15 @@ private:
     BOOL                        m_bLive;
     UINT64                      m_uDuration;
     UINT64                      m_uTime;
+    UINT64                      m_uTimeGetBufferStat;
+    BOOL                        m_bBufferring;
+    // MFNETSOURCE_STATISTICS
+    UINT32                      m_uDownloadSpeed;
+    UINT32                      m_uBytesRecevied;
+    UINT32                      m_uBufferSize;
+    UINT32                      m_uBufferProcess;
+    UINT32                      m_uDownloadProcess;
+    UINT32                      m_uConnectionStatus;
 
     // Async callback helper.
     AsyncCallback<PpboxMediaSource>  m_OnScheduleDelayRequestSample;

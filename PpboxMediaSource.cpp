@@ -20,6 +20,7 @@
 
 #include "SafeRelease.h"
 #include "SourceOp.h"
+#include "PropertySet.h"
 #include "Trace.h"
 
 #include "PpboxMediaType.h"
@@ -70,9 +71,24 @@ HRESULT PpboxMediaSource::CreateInstance(PpboxMediaSource **ppSource)
     }
 
     SafeRelease(&pSource);
-    return hr;
+    TRACEHR_RET(hr);
 }
 
+
+IFACEMETHODIMP PpboxMediaSource::SetProperties(ABI::Windows::Foundation::Collections::IPropertySet *pConfiguration)
+{
+    using namespace ABI::Windows::Foundation;
+    using namespace ABI::Windows::Foundation::Collections;
+    ComPtr<IPropertySet> spConfigurations(pConfiguration);
+
+    HRESULT hr = PropertySetFind(spConfigurations, L"SourceStatistics", m_pStatMap);
+
+    PropertySetSet(m_pStatMap, L"ConnectionStatus", m_uConnectionStatus);
+    PropertySetSet(m_pStatMap, L"BytesRecevied", m_uBytesRecevied);
+    PropertySetSet(m_pStatMap, L"DownloadSpeed", m_uDownloadSpeed);
+
+    TRACEHR_RET(hr);
+}
 
 //-------------------------------------------------------------------
 // IUnknown methods
@@ -84,8 +100,16 @@ HRESULT PpboxMediaSource::QueryInterface(REFIID riid, void** ppv)
     {
         return E_POINTER;
     }
+    TRACE(0, L"PpboxMediaSource::QueryInterface %s\r\n", GetGUIDNameConst(riid));
     HRESULT hr = E_NOINTERFACE;
     (*ppv) = nullptr;
+    if (riid == IID_IMFGetService)
+    {
+        (*ppv) = static_cast<IMFGetService *>(this);
+        AddRef();
+        hr = S_OK;
+    }
+
     if (riid == IID_IUnknown || 
         riid == IID_IMFMediaEventGenerator ||
         riid == IID_IMFMediaSource)
@@ -95,7 +119,7 @@ HRESULT PpboxMediaSource::QueryInterface(REFIID riid, void** ppv)
         hr = S_OK;
     }
 
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 ULONG PpboxMediaSource::AddRef()
@@ -111,6 +135,119 @@ ULONG PpboxMediaSource::Release()
         delete this;
     }
     return cRef;
+}
+
+STDMETHODIMP PpboxMediaSource::GetIids( 
+    /* [out] */ __RPC__out ULONG *iidCount,
+    /* [size_is][size_is][out] */ __RPC__deref_out_ecount_full_opt(*iidCount) IID **iids)
+{
+    static IID siids[] = {
+        IID_IMFGetService, 
+        IID_IPropertyStore, 
+        IID_IMFMediaSource
+    };
+    *iidCount = sizeof(siids) / sizeof(siids[0]);
+    *iids = siids;
+    return S_OK;
+}
+
+STDMETHODIMP PpboxMediaSource::GetRuntimeClassName( 
+    /* [out] */ __RPC__deref_out_opt HSTRING *className)
+{
+    WindowsCreateString(L"PpboxSource.PpboxMediaSource", 16, className);
+    return S_OK;
+}
+
+STDMETHODIMP PpboxMediaSource::GetTrustLevel( 
+    /* [out] */ __RPC__out TrustLevel *trustLevel)
+{
+    *trustLevel = BaseTrust;
+    return S_OK;
+}
+
+STDMETHODIMP PpboxMediaSource::GetService( 
+    /* [in] */ __RPC__in REFGUID guidService,
+    /* [in] */ __RPC__in REFIID riid,
+    /* [iid_is][out] */ __RPC__deref_out_opt LPVOID *ppvObject)
+{
+    TRACE(0, L"PpboxMediaSource::GetService %s %s\r\n", GetGUIDNameConst(guidService), GetGUIDNameConst(riid));
+    HRESULT hr = MF_E_UNSUPPORTED_SERVICE;
+    if (guidService == MFNETSOURCE_STATISTICS_SERVICE && riid == IID_IPropertyStore)
+    {
+        (*ppvObject) = static_cast<IPropertyStore *>(this);
+        AddRef();
+        hr = S_OK;
+    }
+    TRACEHR_RET(hr);
+}
+
+static DWORD const NetSourceStatisticsId[] =
+{
+    MFNETSOURCE_RECVRATE_ID, 
+    MFNETSOURCE_BYTESRECEIVED_ID, 
+    MFNETSOURCE_BUFFERSIZE_ID, 
+    MFNETSOURCE_BUFFERPROGRESS_ID, 
+    MFNETSOURCE_DOWNLOADPROGRESS_ID, 
+};
+
+STDMETHODIMP PpboxMediaSource::GetCount( 
+    /* [out] */ __RPC__out DWORD *cProps)
+{
+    HRESULT hr = S_OK;
+    *cProps = sizeof(NetSourceStatisticsId) / sizeof(NetSourceStatisticsId[0]);
+    TRACEHR_RET(hr);
+}
+
+STDMETHODIMP PpboxMediaSource::GetAt( 
+    /* [in] */ DWORD iProp,
+    /* [out] */ __RPC__out PROPERTYKEY *pkey)
+{
+    HRESULT hr = S_OK;
+    if (iProp < sizeof(NetSourceStatisticsId) / sizeof(NetSourceStatisticsId[0]))
+    {
+        pkey->fmtid = MFNETSOURCE_STATISTICS;
+        pkey->pid = NetSourceStatisticsId[iProp];
+    }
+    else
+    {
+        hr = E_INVALIDARG ;
+    }
+    TRACEHR_RET(hr);
+}
+
+STDMETHODIMP PpboxMediaSource::GetValue( 
+    /* [in] */ __RPC__in REFPROPERTYKEY key,
+    /* [out] */ __RPC__out PROPVARIANT *pv)
+{
+    TRACE(0, L"PpboxMediaSource::GetValue %s %u\r\n", GetGUIDNameConst(key.fmtid), key.pid);
+    HRESULT hr = S_OK;
+    pv->vt = VT_EMPTY;
+    if (key.fmtid == MFNETSOURCE_STATISTICS)
+    {
+        for (int i = 0; i < sizeof(NetSourceStatisticsId) / sizeof(NetSourceStatisticsId[0]); ++i)
+        {
+            if (key.pid == NetSourceStatisticsId[i])
+            {
+                pv->vt = VT_I4;
+                pv->lVal = (&m_uDownloadSpeed)[i];
+            }
+        }
+    }
+    TRACEHR_RET(hr);
+}
+
+STDMETHODIMP PpboxMediaSource::SetValue( 
+    /* [in] */ __RPC__in REFPROPERTYKEY key,
+    /* [in] */ __RPC__in REFPROPVARIANT propvar)
+{
+    HRESULT hr = STG_E_ACCESSDENIED;
+    TRACEHR_RET(hr);
+}
+
+STDMETHODIMP PpboxMediaSource::Commit( void)
+{
+    HRESULT hr = STG_E_ACCESSDENIED;
+    TRACEHR_RET(hr);
 }
 
 //-------------------------------------------------------------------
@@ -135,7 +272,7 @@ HRESULT PpboxMediaSource::BeginGetEvent(IMFAsyncCallback* pCallback,IUnknown* pu
     }
 
     LeaveCriticalSection(&m_critSec);
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 HRESULT PpboxMediaSource::EndGetEvent(IMFAsyncResult* pResult, IMFMediaEvent** ppEvent)
@@ -152,7 +289,7 @@ HRESULT PpboxMediaSource::EndGetEvent(IMFAsyncResult* pResult, IMFMediaEvent** p
     }
 
     LeaveCriticalSection(&m_critSec);
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 HRESULT PpboxMediaSource::GetEvent(DWORD dwFlags, IMFMediaEvent** ppEvent)
@@ -187,7 +324,7 @@ HRESULT PpboxMediaSource::GetEvent(DWORD dwFlags, IMFMediaEvent** ppEvent)
     }
 
     SafeRelease(&pQueue);
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 HRESULT PpboxMediaSource::QueueEvent(MediaEventType met, REFGUID guidExtendedType, HRESULT hrStatus, const PROPVARIANT* pvValue)
@@ -205,7 +342,7 @@ HRESULT PpboxMediaSource::QueueEvent(MediaEventType met, REFGUID guidExtendedTyp
 
     LeaveCriticalSection(&m_critSec);
 
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 //-------------------------------------------------------------------
@@ -256,7 +393,7 @@ HRESULT PpboxMediaSource::CreatePresentationDescriptor(
     }
 
     LeaveCriticalSection(&m_critSec);
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 
@@ -292,7 +429,7 @@ HRESULT PpboxMediaSource::GetCharacteristics(DWORD* pdwCharacteristics)
     // include the MFMEDIASOURCE_CAN_SEEK flag.
 
     LeaveCriticalSection(&m_critSec);
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 
@@ -317,7 +454,7 @@ HRESULT PpboxMediaSource::RequestSample()
     }
 
     LeaveCriticalSection(&m_critSec);
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 
@@ -342,7 +479,7 @@ HRESULT PpboxMediaSource::EndOfStream()
     }
 
     LeaveCriticalSection(&m_critSec);
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 //-------------------------------------------------------------------
@@ -381,7 +518,7 @@ HRESULT PpboxMediaSource::OnEndOfStream(SourceOp *pOp)
         hr = CompleteAsyncOp(pOp);
     }
 
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 
@@ -406,7 +543,7 @@ HRESULT PpboxMediaSource::Pause()
     }
 
     LeaveCriticalSection(&m_critSec);
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 //-------------------------------------------------------------------
@@ -455,7 +592,7 @@ HRESULT PpboxMediaSource::Shutdown()
     }
 
     LeaveCriticalSection(&m_critSec);
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 
@@ -551,7 +688,7 @@ HRESULT PpboxMediaSource::Start(
 done:
     SafeRelease(&pAsyncOp);
     LeaveCriticalSection(&m_critSec);
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 
@@ -582,7 +719,7 @@ HRESULT PpboxMediaSource::Stop()
     }
 
     LeaveCriticalSection(&m_critSec);
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 
@@ -604,6 +741,14 @@ PpboxMediaSource::PpboxMediaSource(HRESULT& hr) :
 	m_bLive(FALSE),
     m_uDuration(0),
 	m_uTime(0),
+    m_uTimeGetBufferStat(0),
+    m_bBufferring(FALSE),
+    m_uDownloadSpeed(0),
+    m_uBytesRecevied(0),
+    m_uBufferSize(0),
+    m_uBufferProcess(0),
+    m_uDownloadProcess(0),
+    m_uConnectionStatus(0),
     m_OnScheduleDelayRequestSample(this, &PpboxMediaSource::OnScheduleDelayRequestSample),
     m_keyScheduleDelayRequestSample(0)
 {
@@ -748,7 +893,7 @@ done:
         }
         delete [] ppSD;
     }
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 
@@ -775,7 +920,7 @@ HRESULT PpboxMediaSource::QueueAsyncOperation(SourceOp::Operation OpType)
     }
 
     SafeRelease(&pOp);
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 //-------------------------------------------------------------------
@@ -837,7 +982,7 @@ HRESULT PpboxMediaSource::CompleteAsyncOp(SourceOp *pOp)
     // Process the next operation on the queue.
     hr = ProcessQueue();
 
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 //-------------------------------------------------------------------
@@ -900,7 +1045,7 @@ HRESULT PpboxMediaSource::DispatchOperation(SourceOp *pOp)
     }
 
     LeaveCriticalSection(&m_critSec);
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 
@@ -1001,7 +1146,7 @@ HRESULT PpboxMediaSource::DoStart(StartOp *pOp)
 
     SafeRelease(&pEvent);
     SafeRelease(&pPD);
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 
@@ -1051,7 +1196,7 @@ HRESULT PpboxMediaSource::DoStop(SourceOp *pOp)
 
     CompleteAsyncOp(pOp);
 
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 
@@ -1099,7 +1244,7 @@ HRESULT PpboxMediaSource::DoPause(SourceOp *pOp)
 
     CompleteAsyncOp(pOp);
 
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 
@@ -1147,7 +1292,7 @@ HRESULT PpboxMediaSource::OnStreamRequestSample(SourceOp *pOp)
         CompleteAsyncOp(pOp);
     }
 
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 
@@ -1253,7 +1398,7 @@ HRESULT PpboxMediaSource::SelectStreams(
 
 done:
     SafeRelease(&pSD);
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 
@@ -1286,7 +1431,7 @@ HRESULT PpboxMediaSource::EndOfPpboxStream()
         }
     }
 
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 
@@ -1345,6 +1490,57 @@ HRESULT PpboxMediaSource::DeliverPayload()
     IMFSample           *pSample = NULL;
     BYTE                *pData = NULL;      // Pointer to the IMFMediaBuffer data.
 
+    if (m_bBufferring || m_uTimeGetBufferStat <= m_uTime)
+    {
+        PPBOX_PlayStatistic stat = {sizeof(stat)};
+        hr = PPBOX_GetPlayStat(&stat);
+        if (hr == ppbox_success || hr == ppbox_would_block)
+        {
+            m_uBufferSize = stat.buffer_time;
+            m_uBufferProcess = stat.buffering_present;
+            if (!m_bLive)
+            {
+                m_uDownloadProcess = (UINT32)((m_uTime + m_uBufferSize * 10000) * 100 / m_uDuration);
+            }
+
+            m_uTimeGetBufferStat += 10 * 1000 * 1000; // do get buffer stat once per second
+            if (m_bBufferring)
+            {
+                if (m_uBufferProcess < 100)
+                {
+		            if (m_keyScheduleDelayRequestSample == 0) {
+			            //OutputDebugString(L"[DeliverPayload] would block\r\n");
+			            m_keyScheduleDelayRequestSample = 
+				            PPBOX_ScheduleCallback(100, &m_OnScheduleDelayRequestSample, OnPpboxTimer);
+		            }
+                    TRACEHR_RET(hr);
+                }
+                else
+                {
+                    m_bBufferring = FALSE;
+                    hr = m_pEventQueue->QueueEventParamVar(MEBufferingStopped, GUID_NULL, S_OK, NULL);
+                }
+            }
+        }
+        else
+        {
+            hr = E_FAIL;
+            TRACEHR_RET(hr);
+        }
+        PPBOX_NetStatistic stat2 = {sizeof(stat2)};
+        hr = PPBOX_GetNetStat(&stat2);
+        if (hr == ppbox_success || hr == ppbox_would_block)
+        {
+            m_uDownloadSpeed = stat2.average_speed_five_seconds;
+            m_uBytesRecevied = stat2.total_download_bytes;
+            m_uConnectionStatus = stat2.connection_status;
+
+            PropertySetSet(m_pStatMap, L"ConnectionStatus", m_uConnectionStatus);
+            PropertySetSet(m_pStatMap, L"BytesRecevied", m_uBytesRecevied);
+            PropertySetSet(m_pStatMap, L"DownloadSpeed", m_uDownloadSpeed);
+        }
+    }
+
     hr = PPBOX_ReadSample(&sample);
 
     if (hr == ppbox_success)
@@ -1354,24 +1550,26 @@ HRESULT PpboxMediaSource::DeliverPayload()
     else if (hr == ppbox_would_block)
     {
         //hr = MFScheduleWorkItem(&m_OnScheduleDelayRequestSample, NULL, -100, NULL);
-        //return hr;
+        //TRACEHR_RET(hr);
+        m_bBufferring = TRUE;
+        hr = m_pEventQueue->QueueEventParamVar(MEBufferingStarted, GUID_NULL, S_OK, NULL);
 		if (m_keyScheduleDelayRequestSample == 0) {
 			//OutputDebugString(L"[DeliverPayload] would block\r\n");
 			m_keyScheduleDelayRequestSample = 
 				PPBOX_ScheduleCallback(100, &m_OnScheduleDelayRequestSample, OnPpboxTimer);
 		}
 		hr = S_OK;
-        return hr;
+        TRACEHR_RET(hr);
     }
     else if (hr == ppbox_stream_end)
     {
         hr = EndOfPpboxStream();
-        return hr;
+        TRACEHR_RET(hr);
     }
     else
     {
         hr = E_FAIL;
-        return hr;
+        TRACEHR_RET(hr);
     }
 
     // Create a media buffer for the payload.
@@ -1441,7 +1639,7 @@ HRESULT PpboxMediaSource::DeliverPayload()
 
     SafeRelease(&pBuffer);
     SafeRelease(&pSample);
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 
@@ -1466,11 +1664,11 @@ HRESULT PpboxMediaSource::CreateStream(long stream_id)
 
     switch (info.type)
     {
-    case PPBOX_StreamType_VIDE:
+    case PPBOX_StreamType::VIDE:
         hr = CreateVideoMediaType(info, &pType);
         break;
 
-    case PPBOX_StreamType_AUDI:
+    case PPBOX_StreamType::AUDI:
         hr = CreateAudioMediaType(info, &pType);
         break;
 
@@ -1513,7 +1711,7 @@ HRESULT PpboxMediaSource::CreateStream(long stream_id)
 
     SafeRelease(&pSD);
     SafeRelease(&pStream);
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 
@@ -1572,7 +1770,7 @@ HRESULT PpboxMediaSource::ValidatePresentationDescriptor(IMFPresentationDescript
     }
 
     SafeRelease(&pSD);
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 
@@ -1638,7 +1836,7 @@ HRESULT PpboxMediaSource::OnScheduleDelayRequestSample(IMFAsyncResult *pResult)
 
     SafeRelease(&pState);
     LeaveCriticalSection(&m_critSec);
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 

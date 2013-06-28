@@ -43,12 +43,15 @@ PpboxSchemeHandler::~PpboxSchemeHandler()
 {
     SafeRelease(&m_pSource);
     SafeRelease(&m_pResult);
+    SafeRelease(&m_pConfiguration);
 }
 
 
 // IMediaExtension methods
 IFACEMETHODIMP PpboxSchemeHandler::SetProperties(ABI::Windows::Foundation::Collections::IPropertySet *pConfiguration)
 {
+    m_pConfiguration = pConfiguration;
+    m_pConfiguration->AddRef();
     return S_OK;
 }
 
@@ -108,7 +111,7 @@ HRESULT PpboxSchemeHandler::BeginCreateObject(
 		AddRef();
         PPBOX_AsyncOpenEx(
 			pszPlaylink, 
-			"format=raw&demux.Source.time_out=0&mux.RawMuxer.real_format=asf&mux.RawMuxer.time_scale=10000000", // &mux.TimeScale.time_adjust_mode=2
+			"format=raw&mux.RawMuxer.real_format=asf&mux.RawMuxer.time_scale=10000000", // &mux.TimeScale.time_adjust_mode=2
 			this, 
 			&PpboxSchemeHandler::StaticOpenCallback);
     }
@@ -139,6 +142,7 @@ void PpboxSchemeHandler::OpenCallback(HRESULT hr)
     if (SUCCEEDED(hr)) {
         m_pSource = pSource;
         m_pSource->AddRef();
+        m_pSource->SetProperties(m_pConfiguration);
     }
 
     m_pResult->SetStatus(hr);
