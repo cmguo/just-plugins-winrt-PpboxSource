@@ -81,7 +81,7 @@ IFACEMETHODIMP PpboxMediaSource::SetProperties(ABI::Windows::Foundation::Collect
     using namespace ABI::Windows::Foundation::Collections;
     ComPtr<IPropertySet> spConfigurations(pConfiguration);
 
-    HRESULT hr = PropertySetFind(spConfigurations, L"SourceStatistics", m_pStatMap);
+    HRESULT hr = PropertySetAddSubMap(spConfigurations, L"SourceStatistics", m_pStatMap);
 
     PropertySetSet(m_pStatMap, L"ConnectionStatus", m_uConnectionStatus);
     PropertySetSet(m_pStatMap, L"BytesRecevied", m_uBytesRecevied);
