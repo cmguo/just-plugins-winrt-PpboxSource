@@ -23,6 +23,8 @@
 
 #include "Windows.Media.h"
 
+#include <AsyncCallback.h>
+
 //-------------------------------------------------------------------
 // PpboxByteStreamHandler  class
 //
@@ -67,12 +69,10 @@ public:
         /* [in] */ IUnknown *pIUnknownCancelCookie);
 
 private:
-    static void __cdecl StaticOpenCallback(PP_context user, PP_err err);
-
-    void OpenCallback(HRESULT hr);
+    HRESULT OpenCallback(IMFAsyncResult* pAsyncResult);
 
     long            m_cRef; // reference count
+    AsyncCallback<PpboxSchemeHandler>   m_pCallback; 
     ABI::Windows::Foundation::Collections::IPropertySet *m_pConfiguration;
-    PpboxMediaSource     *m_pSource;
-    IMFAsyncResult  *m_pResult;
+    PpboxMediaSource                    *m_pSource;
 };

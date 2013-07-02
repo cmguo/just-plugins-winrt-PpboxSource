@@ -37,7 +37,8 @@ public:
         OP_PAUSE,
         OP_STOP,
         OP_REQUEST_DATA,
-        OP_END_OF_STREAM
+        OP_END_OF_STREAM,
+        OP_TIMER,
     };
 
     static HRESULT CreateOp(Operation op, SourceOp **ppOp);

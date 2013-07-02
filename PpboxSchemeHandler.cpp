@@ -17,9 +17,8 @@
 #include "PpboxMediaSource.h"
 #include "PpboxSchemeHandler.h"
 
-#include "SafeRelease.h"
-
-#include <atlconv.h>
+#include <SafeRelease.h>
+#include <Trace.h>
 
 //-------------------------------------------------------------------
 // PpboxByteStreamHandler  class
@@ -31,7 +30,9 @@
 //-------------------------------------------------------------------
 
 PpboxSchemeHandler::PpboxSchemeHandler()
-    : m_cRef(1), m_pSource(NULL), m_pResult(NULL)
+    : m_cRef(1)
+    , m_pCallback(this, &PpboxSchemeHandler::OpenCallback)
+    , m_pSource(NULL)
 {
 }
 
@@ -42,7 +43,6 @@ PpboxSchemeHandler::PpboxSchemeHandler()
 PpboxSchemeHandler::~PpboxSchemeHandler()
 {
     SafeRelease(&m_pSource);
-    SafeRelease(&m_pResult);
     SafeRelease(&m_pConfiguration);
 }
 
@@ -73,8 +73,6 @@ HRESULT PpboxSchemeHandler::BeginCreateObject(
     /* [in] */ IUnknown *punkState
     )
 {
-    USES_CONVERSION;
-
     if (pCallback == NULL)
     {
         return E_POINTER;
@@ -86,70 +84,54 @@ HRESULT PpboxSchemeHandler::BeginCreateObject(
     }
 
     HRESULT hr = S_OK;
-    IMFAsyncResult * pResult = NULL;
+    IMFAsyncResult      *pResult = NULL;
+    PpboxMediaSource    *pSource = NULL;
 
     hr = MFCreateAsyncResult(NULL, pCallback, punkState, &pResult);
 
     if (SUCCEEDED(hr))
     {
-        m_pResult = pResult;
-        m_pResult->AddRef();
-
-		*ppIUnknownCancelCookie = pResult;
-		(*ppIUnknownCancelCookie)->AddRef();
-
-        LPSTR pszPlaylink = W2A(pwszURL);
-        if (strncmp(pszPlaylink, "identify:", 9) == 0) {
-            char * p = strchr(pszPlaylink, '#');
-            *p++ = 0;
-            int l = strlen(p);
-            char * q = pszPlaylink = pszPlaylink + 8 - l;
-            strcpy_s(q, l + 1, p);
-            q[l] = ':';
-        }
-
-		AddRef();
-        PPBOX_AsyncOpenEx(
-			pszPlaylink, 
-			"format=raw&mux.RawMuxer.real_format=asf&mux.RawMuxer.time_scale=10000000", // &mux.TimeScale.time_adjust_mode=2
-			this, 
-			&PpboxSchemeHandler::StaticOpenCallback);
-    }
-
-    return hr;
-}
-
-void __cdecl PpboxSchemeHandler::StaticOpenCallback(PP_context user, PP_err err)
-{
-	PpboxSchemeHandler * inst = (PpboxSchemeHandler *)user;
-    if (err != ppbox_success && err != ppbox_already_open && err != ppbox_operation_canceled)
-    {
-        PPBOX_Close();
-    }
-    inst->OpenCallback(err == ppbox_success ? S_OK : E_FAIL);
-	SafeRelease(&inst);
-}
-
-void PpboxSchemeHandler::OpenCallback(HRESULT hr)
-{
-    PpboxMediaSource    *pSource = NULL;
-
-    if (SUCCEEDED(hr)) {
-        // Create an instance of the media source.
         hr = PpboxMediaSource::CreateInstance(&pSource);
     }
-
-    if (SUCCEEDED(hr)) {
+    if (SUCCEEDED(hr))
+    {
         m_pSource = pSource;
         m_pSource->AddRef();
-        m_pSource->SetProperties(m_pConfiguration);
+        hr = m_pSource->SetProperties(m_pConfiguration);
+    }
+    if (SUCCEEDED(hr))
+    {
+        hr = m_pSource->AsyncOpen(pwszURL, ppIUnknownCancelCookie, &m_pCallback, pResult);
     }
 
-    m_pResult->SetStatus(hr);
-
-    MFInvokeCallback(m_pResult);
-
+    SafeRelease(&pResult);
     SafeRelease(&pSource);
+
+    TRACEHR_RET(hr);
+}
+
+HRESULT PpboxSchemeHandler::OpenCallback(IMFAsyncResult* pAsyncResult)
+{
+    HRESULT hr = S_OK;
+    IUnknown* pUnknownResult = NULL;
+    IMFAsyncResult* pResult = NULL;
+    
+    hr = pAsyncResult->GetState(&pUnknownResult);
+    if (SUCCEEDED(hr))
+    {
+        hr = pUnknownResult->QueryInterface(IID_PPV_ARGS(&pResult));
+    }
+    if (SUCCEEDED(hr))
+    {
+        hr = pResult->SetStatus(pAsyncResult->GetStatus());
+    }
+
+    MFInvokeCallback(pResult);
+
+    SafeRelease(&pResult);
+    SafeRelease(&pUnknownResult);
+
+    TRACEHR_RET(hr);
 }
 
 //-------------------------------------------------------------------
@@ -182,14 +164,13 @@ HRESULT PpboxSchemeHandler::EndCreateObject(
     }
 
     SafeRelease(&m_pSource);
-    SafeRelease(&m_pResult);
 
-    return hr;
+    TRACEHR_RET(hr);
 }
 
 HRESULT PpboxSchemeHandler::CancelObjectCreation(
     IUnknown *pIUnknownCancelCookie)
 {
-    PPBOX_Close();
-    return S_OK;
+    HRESULT hr = m_pSource->CancelOpen(pIUnknownCancelCookie);
+    TRACEHR_RET(hr);
 }

@@ -17,6 +17,7 @@
 #include "PpboxMediaSource.h"
 #include <InitGuid.h>
 #include <wmcodecdsp.h>
+#include <atlconv.h>
 
 #include "SafeRelease.h"
 #include "SourceOp.h"
@@ -100,7 +101,7 @@ HRESULT PpboxMediaSource::QueryInterface(REFIID riid, void** ppv)
     {
         return E_POINTER;
     }
-    TRACE(0, L"PpboxMediaSource::QueryInterface %s\r\n", GetGUIDNameConst(riid));
+    //TRACE(0, L"PpboxMediaSource::QueryInterface %s\r\n", GetGUIDNameConst(riid));
     HRESULT hr = E_NOINTERFACE;
     (*ppv) = nullptr;
     if (riid == IID_IMFGetService)
@@ -137,40 +138,12 @@ ULONG PpboxMediaSource::Release()
     return cRef;
 }
 
-STDMETHODIMP PpboxMediaSource::GetIids( 
-    /* [out] */ __RPC__out ULONG *iidCount,
-    /* [size_is][size_is][out] */ __RPC__deref_out_ecount_full_opt(*iidCount) IID **iids)
-{
-    static IID siids[] = {
-        IID_IMFGetService, 
-        IID_IPropertyStore, 
-        IID_IMFMediaSource
-    };
-    *iidCount = sizeof(siids) / sizeof(siids[0]);
-    *iids = siids;
-    return S_OK;
-}
-
-STDMETHODIMP PpboxMediaSource::GetRuntimeClassName( 
-    /* [out] */ __RPC__deref_out_opt HSTRING *className)
-{
-    WindowsCreateString(L"PpboxSource.PpboxMediaSource", 16, className);
-    return S_OK;
-}
-
-STDMETHODIMP PpboxMediaSource::GetTrustLevel( 
-    /* [out] */ __RPC__out TrustLevel *trustLevel)
-{
-    *trustLevel = BaseTrust;
-    return S_OK;
-}
-
 STDMETHODIMP PpboxMediaSource::GetService( 
     /* [in] */ __RPC__in REFGUID guidService,
     /* [in] */ __RPC__in REFIID riid,
     /* [iid_is][out] */ __RPC__deref_out_opt LPVOID *ppvObject)
 {
-    TRACE(0, L"PpboxMediaSource::GetService %s %s\r\n", GetGUIDNameConst(guidService), GetGUIDNameConst(riid));
+    //TRACE(0, L"PpboxMediaSource::GetService %s %s\r\n", GetGUIDNameConst(guidService), GetGUIDNameConst(riid));
     HRESULT hr = MF_E_UNSUPPORTED_SERVICE;
     if (guidService == MFNETSOURCE_STATISTICS_SERVICE && riid == IID_IPropertyStore)
     {
@@ -219,7 +192,7 @@ STDMETHODIMP PpboxMediaSource::GetValue(
     /* [in] */ __RPC__in REFPROPERTYKEY key,
     /* [out] */ __RPC__out PROPVARIANT *pv)
 {
-    TRACE(0, L"PpboxMediaSource::GetValue %s %u\r\n", GetGUIDNameConst(key.fmtid), key.pid);
+    //TRACE(0, L"PpboxMediaSource::GetValue %s %u\r\n", GetGUIDNameConst(key.fmtid), key.pid);
     HRESULT hr = S_OK;
     pv->vt = VT_EMPTY;
     if (key.fmtid == MFNETSOURCE_STATISTICS)
@@ -432,6 +405,98 @@ HRESULT PpboxMediaSource::GetCharacteristics(DWORD* pdwCharacteristics)
     TRACEHR_RET(hr);
 }
 
+static void OnPpboxTimer(
+	PP_context callback, 
+	PP_err result)
+{
+	AsyncCallback<PpboxMediaSource> * async_callback = (AsyncCallback<PpboxMediaSource> *)callback;
+	MFPutWorkItem2(MFASYNC_CALLBACK_QUEUE_STANDARD, 0, async_callback, NULL);
+}
+
+
+HRESULT PpboxMediaSource::AsyncOpen(
+    /* [in] */ LPCWSTR pwszURL,
+    /* [out] */ IUnknown **ppIUnknownCancelCookie,
+    /* [in] */ IMFAsyncCallback *pCallback,
+    /* [in] */ IUnknown *punkState)
+{
+    USES_CONVERSION;
+
+    HRESULT hr = S_OK;
+    IMFAsyncResult * pResult = NULL;
+
+    hr = MFCreateAsyncResult(NULL, pCallback, punkState, &pResult);
+
+    if (SUCCEEDED(hr))
+    {
+        m_pOpenResult = pResult;
+        m_pOpenResult->AddRef();
+
+		*ppIUnknownCancelCookie = pResult;
+		(*ppIUnknownCancelCookie)->AddRef();
+
+        LPSTR pszPlaylink = W2A(pwszURL);
+        if (strncmp(pszPlaylink, "identify:", 9) == 0) {
+            char * p = strchr(pszPlaylink, '#');
+            *p++ = 0;
+            int l = strlen(p);
+            char * q = pszPlaylink = pszPlaylink + 8 - l;
+            strcpy_s(q, l + 1, p);
+            q[l] = ':';
+        }
+
+        m_state = STATE_OPENING;
+
+		AddRef();
+        PPBOX_AsyncOpenEx(
+			pszPlaylink, 
+			"format=raw&mux.RawMuxer.real_format=asf&mux.RawMuxer.time_scale=10000000", // &mux.TimeScale.time_adjust_mode=2
+			this, 
+			&PpboxMediaSource::StaticOpenCallback);
+		m_keyScheduleTimer = 
+			PPBOX_ScheduleCallback(100, &m_OnScheduleTimer, OnPpboxTimer);
+    }
+
+	SafeRelease(&pResult);
+
+    return hr;
+}
+
+void __cdecl PpboxMediaSource::StaticOpenCallback(PP_context user, PP_err err)
+{
+	PpboxMediaSource * inst = (PpboxMediaSource *)user;
+    if (err != ppbox_success && err != ppbox_already_open && err != ppbox_operation_canceled)
+    {
+        PPBOX_Close();
+    }
+    inst->OpenCallback(err == ppbox_success ? S_OK : E_FAIL);
+	SafeRelease(&inst);
+}
+
+void PpboxMediaSource::OpenCallback(HRESULT hr)
+{
+    EnterCriticalSection(&m_critSec);
+
+    if (SUCCEEDED(hr))
+    {
+        hr = InitPresentationDescriptor();
+    }
+
+    m_pOpenResult->SetStatus(hr);
+
+    MFInvokeCallback(m_pOpenResult);
+
+    SafeRelease(&m_pOpenResult);
+
+    LeaveCriticalSection(&m_critSec);
+}
+
+HRESULT PpboxMediaSource::CancelOpen(
+    /* [in] */ IUnknown *pIUnknownCancelCookie)
+{
+    PPBOX_Close();
+    return S_OK;
+}
 
 //-------------------------------------------------------------------
 // RequestSample
@@ -511,6 +576,39 @@ HRESULT PpboxMediaSource::OnEndOfStream(SourceOp *pOp)
             hr = m_pEventQueue->QueueEventParamVar(MEEndOfPresentation, GUID_NULL, S_OK, NULL);
         }
 
+    }
+
+    if (SUCCEEDED(hr))
+    {
+        hr = CompleteAsyncOp(pOp);
+    }
+
+    TRACEHR_RET(hr);
+}
+
+
+HRESULT PpboxMediaSource::OnScheduleTimer(SourceOp *pOp)
+{
+    HRESULT hr = S_OK;
+
+    hr = BeginAsyncOp(pOp);
+
+    // Decrement the count of end-of-stream notifications.
+    if (SUCCEEDED(hr))
+    {
+        if (m_state == STATE_OPENING)
+        {
+            UpdateNetStat();
+		    if (m_keyScheduleTimer == 0) {
+			    //OutputDebugString(L"[DeliverPayload] would block\r\n");
+			    m_keyScheduleTimer = 
+				    PPBOX_ScheduleCallback(100, &m_OnScheduleTimer, OnPpboxTimer);
+		    }
+        }
+        else
+        {
+            DeliverPayload();
+        }
     }
 
     if (SUCCEEDED(hr))
@@ -733,15 +831,17 @@ PpboxMediaSource::PpboxMediaSource(HRESULT& hr) :
     OpQueue(m_critSec),
     m_cRef(1),
     m_pEventQueue(NULL),
-    m_pPresentationDescriptor(NULL),
     m_state(STATE_INVALID),
+    m_pOpenResult(NULL),
+    m_pPresentationDescriptor(NULL),
+    m_streams(NULL),
+    m_stream_number(0),
     m_pCurrentOp(NULL),
-    m_cRestartCounter(0),
-    m_pSampleRequest(NULL),
+    m_cPendingEOS(0),
 	m_bLive(FALSE),
     m_uDuration(0),
 	m_uTime(0),
-    m_uTimeGetBufferStat(0),
+    m_uTimeGetBufferStat(GetTickCount64()),
     m_bBufferring(FALSE),
     m_uDownloadSpeed(0),
     m_uBytesRecevied(0),
@@ -749,8 +849,8 @@ PpboxMediaSource::PpboxMediaSource(HRESULT& hr) :
     m_uBufferProcess(0),
     m_uDownloadProcess(0),
     m_uConnectionStatus(0),
-    m_OnScheduleDelayRequestSample(this, &PpboxMediaSource::OnScheduleDelayRequestSample),
-    m_keyScheduleDelayRequestSample(0)
+    m_OnScheduleTimer(this, &PpboxMediaSource::OnScheduleTimerCallback),
+    m_keyScheduleTimer(0)
 {
     InitializeCriticalSectionEx(&m_critSec, 1000, 0);
 
@@ -762,8 +862,6 @@ PpboxMediaSource::PpboxMediaSource(HRESULT& hr) :
 
     // Create the media event queue.
     hr = MFCreateEventQueue(&m_pEventQueue);
-
-    InitPresentationDescriptor();
 }
 
 PpboxMediaSource::~PpboxMediaSource()
@@ -1035,6 +1133,10 @@ HRESULT PpboxMediaSource::DispatchOperation(SourceOp *pOp)
         hr = OnEndOfStream(pOp);
         break;
 
+    case SourceOp::OP_TIMER:
+        hr = OnScheduleTimer(pOp);
+        break;
+
     default:
         hr = E_UNEXPECTED;
     }
@@ -1178,18 +1280,10 @@ HRESULT PpboxMediaSource::DoStop(SourceOp *pOp)
         }
     }
 
-    // Increment the counter that tracks "stale" read requests.
-    if (SUCCEEDED(hr))
-    {
-        ++m_cRestartCounter; // This counter is allowed to overflow.
-    }
-
-    SafeRelease(&m_pSampleRequest);
-
     m_state = STATE_STOPPED;
 
-	if (m_keyScheduleDelayRequestSample)
-		PPBOX_CancelCallback(m_keyScheduleDelayRequestSample);
+	if (m_keyScheduleTimer)
+		PPBOX_CancelCallback(m_keyScheduleTimer);
 
     // Send the "stopped" event. This might include a failure code.
     (void)m_pEventQueue->QueueEventParamVar(MESourceStopped, GUID_NULL, hr, NULL);
@@ -1262,32 +1356,9 @@ HRESULT PpboxMediaSource::OnStreamRequestSample(SourceOp *pOp)
 
     hr = BeginAsyncOp(pOp);
 
-    // Ignore this request if we are already handling an earlier request.
-    // (In that case m_pSampleRequest will be non-NULL.)
-
     if (SUCCEEDED(hr))
     {
-        if (m_pSampleRequest == NULL)
-        {
-            // Add the request counter as data to the operation.
-            // This counter tracks whether a read request becomes "stale."
-
-            PROPVARIANT var;
-            var.vt = VT_UI4;
-            var.ulVal = m_cRestartCounter;
-
-            hr = pOp->SetData(var);
-
-            if (SUCCEEDED(hr))
-            {
-                // Store this while the request is pending.
-                //m_pSampleRequest = pOp;
-                //m_pSampleRequest->AddRef();
-
-                // Try to parse data - this will invoke a read request if needed.
-                DeliverPayload();
-            }
-        }
+        DeliverPayload();
 
         CompleteAsyncOp(pOp);
     }
@@ -1435,6 +1506,27 @@ HRESULT PpboxMediaSource::EndOfPpboxStream()
 }
 
 
+HRESULT PpboxMediaSource::UpdateNetStat()
+{
+    HRESULT hr = S_OK;
+    PPBOX_NetStatistic stat2 = {sizeof(stat2)};
+    hr = PPBOX_GetNetStat(&stat2);
+    if (hr == ppbox_success || hr == ppbox_would_block)
+    {
+        m_uDownloadSpeed = stat2.average_speed_five_seconds;
+        m_uBytesRecevied = stat2.total_download_bytes;
+        m_uConnectionStatus = stat2.connection_status;
+
+        PropertySetSet(m_pStatMap, L"ConnectionStatus", m_uConnectionStatus);
+        PropertySetSet(m_pStatMap, L"BytesRecevied", m_uBytesRecevied);
+        PropertySetSet(m_pStatMap, L"DownloadSpeed", m_uDownloadSpeed);
+    }
+    else
+    {
+        hr = E_FAIL;
+    }
+    TRACEHR_RET(hr);
+}
 
 //-------------------------------------------------------------------
 // StreamsNeedData:
@@ -1465,14 +1557,6 @@ BOOL PpboxMediaSource::StreamsNeedData() const
     }
 }
 
-static void OnPpboxTimer(
-	PP_context callback, 
-	PP_err result)
-{
-	AsyncCallback<PpboxMediaSource> * async_callback = (AsyncCallback<PpboxMediaSource> *)callback;
-	MFPutWorkItem2(MFASYNC_CALLBACK_QUEUE_STANDARD, 0, async_callback, NULL);
-}
-
 //-------------------------------------------------------------------
 // DeliverPayload:
 // Delivers an Ppbox payload.
@@ -1490,8 +1574,9 @@ HRESULT PpboxMediaSource::DeliverPayload()
     IMFSample           *pSample = NULL;
     BYTE                *pData = NULL;      // Pointer to the IMFMediaBuffer data.
 
-    if (m_bBufferring || m_uTimeGetBufferStat <= m_uTime)
+    if (m_bBufferring || m_uTimeGetBufferStat <= GetTickCount64())
     {
+        hr = UpdateNetStat();
         PPBOX_PlayStatistic stat = {sizeof(stat)};
         hr = PPBOX_GetPlayStat(&stat);
         if (hr == ppbox_success || hr == ppbox_would_block)
@@ -1503,15 +1588,15 @@ HRESULT PpboxMediaSource::DeliverPayload()
                 m_uDownloadProcess = (UINT32)((m_uTime + m_uBufferSize * 10000) * 100 / m_uDuration);
             }
 
-            m_uTimeGetBufferStat += 10 * 1000 * 1000; // do get buffer stat once per second
+            m_uTimeGetBufferStat += 1000; // do get buffer stat once per second
             if (m_bBufferring)
             {
                 if (m_uBufferProcess < 100)
                 {
-		            if (m_keyScheduleDelayRequestSample == 0) {
+		            if (m_keyScheduleTimer == 0) {
 			            //OutputDebugString(L"[DeliverPayload] would block\r\n");
-			            m_keyScheduleDelayRequestSample = 
-				            PPBOX_ScheduleCallback(100, &m_OnScheduleDelayRequestSample, OnPpboxTimer);
+			            m_keyScheduleTimer = 
+				            PPBOX_ScheduleCallback(100, &m_OnScheduleTimer, OnPpboxTimer);
 		            }
                     TRACEHR_RET(hr);
                 }
@@ -1527,18 +1612,6 @@ HRESULT PpboxMediaSource::DeliverPayload()
             hr = E_FAIL;
             TRACEHR_RET(hr);
         }
-        PPBOX_NetStatistic stat2 = {sizeof(stat2)};
-        hr = PPBOX_GetNetStat(&stat2);
-        if (hr == ppbox_success || hr == ppbox_would_block)
-        {
-            m_uDownloadSpeed = stat2.average_speed_five_seconds;
-            m_uBytesRecevied = stat2.total_download_bytes;
-            m_uConnectionStatus = stat2.connection_status;
-
-            PropertySetSet(m_pStatMap, L"ConnectionStatus", m_uConnectionStatus);
-            PropertySetSet(m_pStatMap, L"BytesRecevied", m_uBytesRecevied);
-            PropertySetSet(m_pStatMap, L"DownloadSpeed", m_uDownloadSpeed);
-        }
     }
 
     hr = PPBOX_ReadSample(&sample);
@@ -1549,14 +1622,14 @@ HRESULT PpboxMediaSource::DeliverPayload()
     }
     else if (hr == ppbox_would_block)
     {
-        //hr = MFScheduleWorkItem(&m_OnScheduleDelayRequestSample, NULL, -100, NULL);
+        //hr = MFScheduleWorkItem(&m_OnScheduleTimer, NULL, -100, NULL);
         //TRACEHR_RET(hr);
         m_bBufferring = TRUE;
         hr = m_pEventQueue->QueueEventParamVar(MEBufferingStarted, GUID_NULL, S_OK, NULL);
-		if (m_keyScheduleDelayRequestSample == 0) {
+		if (m_keyScheduleTimer == 0) {
 			//OutputDebugString(L"[DeliverPayload] would block\r\n");
-			m_keyScheduleDelayRequestSample = 
-				PPBOX_ScheduleCallback(100, &m_OnScheduleDelayRequestSample, OnPpboxTimer);
+			m_keyScheduleTimer = 
+				PPBOX_ScheduleCallback(100, &m_OnScheduleTimer, OnPpboxTimer);
 		}
 		hr = S_OK;
         TRACEHR_RET(hr);
@@ -1793,13 +1866,13 @@ void PpboxMediaSource::StreamingError(HRESULT hr)
 }
 
 //-------------------------------------------------------------------
-// OnScheduleDelayRequestSample
+// OnScheduleTimer
 // Called when an asynchronous read completes.
 //
 // 
 //-------------------------------------------------------------------
 
-HRESULT PpboxMediaSource::OnScheduleDelayRequestSample(IMFAsyncResult *pResult)
+HRESULT PpboxMediaSource::OnScheduleTimerCallback(IMFAsyncResult *pResult)
 {
     EnterCriticalSection(&m_critSec);
 
@@ -1828,11 +1901,11 @@ HRESULT PpboxMediaSource::OnScheduleDelayRequestSample(IMFAsyncResult *pResult)
         StreamingError(hr);
     }
 
-	//OutputDebugString(L"OnScheduleDelayRequestSample\r\n");
+	//OutputDebugString(L"OnScheduleTimer\r\n");
 
-    hr = QueueAsyncOperation(SourceOp::OP_REQUEST_DATA);
+    hr = QueueAsyncOperation(SourceOp::OP_TIMER);
 
-	m_keyScheduleDelayRequestSample = 0;
+	m_keyScheduleTimer = 0;
 
     SafeRelease(&pState);
     LeaveCriticalSection(&m_critSec);

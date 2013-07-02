@@ -46,6 +46,7 @@ typedef ComPtrList<IUnknown, true>  TokenList;    // List of tokens for IMFMedia
 enum SourceState
 {
     STATE_INVALID,      // Initial state. Have not started opening the stream.
+    STATE_OPENING,
     STATE_STOPPED,
     STATE_PAUSED,
     STATE_STARTED,
@@ -68,7 +69,6 @@ const DWORD SAMPLE_QUEUE = 2;               // How many samples does each stream
 // PpboxMediaSource: The media source object.
 class PpboxMediaSource 
     : public OpQueue<SourceOp>
-    , public IInspectable
     , public IMFGetService
     , public IPropertyStore
     , public IMFMediaSource
@@ -82,15 +82,6 @@ public:
     STDMETHODIMP QueryInterface(REFIID iid, void** ppv);
     STDMETHODIMP_(ULONG) AddRef();
     STDMETHODIMP_(ULONG) Release();
-
-    // IInspectable
-    STDMETHODIMP GetIids( 
-        /* [out] */ __RPC__out ULONG *iidCount,
-        /* [size_is][size_is][out] */ __RPC__deref_out_ecount_full_opt(*iidCount) IID **iids);
-    STDMETHODIMP GetRuntimeClassName( 
-        /* [out] */ __RPC__deref_out_opt HSTRING *className);
-    STDMETHODIMP GetTrustLevel( 
-        /* [out] */ __RPC__out TrustLevel *trustLevel);
 
     // IMFGetService
     STDMETHODIMP GetService( 
@@ -130,6 +121,15 @@ public:
     );
     STDMETHODIMP Stop();
 
+    HRESULT AsyncOpen(
+        /* [in] */ LPCWSTR pwszURL,
+        /* [out] */ IUnknown **ppIUnknownCancelCookie,
+        /* [in] */ IMFAsyncCallback *pCallback,
+        /* [in] */ IUnknown *punkState);
+
+    HRESULT CancelOpen(
+        /* [in] */ IUnknown *pIUnknownCancelCookie);
+
     // (This method is public because the streams call it.)
     HRESULT EndOfStream();
 
@@ -141,6 +141,10 @@ public:
     void    Unlock() { LeaveCriticalSection(&m_critSec); }
 
 private:
+
+    static void __cdecl StaticOpenCallback(PP_context user, PP_err err);
+
+    void OpenCallback(HRESULT hr);
 
     HRESULT QueueAsyncOperation(SourceOp::Operation OpType);
 
@@ -163,12 +167,14 @@ private:
     HRESULT     DoPause(SourceOp *pOp);
     HRESULT     OnStreamRequestSample(SourceOp *pOp);
     HRESULT     OnEndOfStream(SourceOp *pOp);
+    HRESULT     OnScheduleTimer(SourceOp *pOp);
 
     HRESULT     InitPresentationDescriptor();
     HRESULT     SelectStreams(IMFPresentationDescriptor *pPD, PROPVARIANT * varStart);
 
     HRESULT     DeliverPayload();
     HRESULT     EndOfPpboxStream();
+    HRESULT     UpdateNetStat();
 
     HRESULT     CreateStream(long stream_id);
 
@@ -182,7 +188,7 @@ private:
     HRESULT     DispatchOperation(SourceOp *pOp);
     HRESULT     ValidateOperation(SourceOp *pOp);
 
-    HRESULT     OnScheduleDelayRequestSample(IMFAsyncResult *pResult);
+    HRESULT     OnScheduleTimerCallback(IMFAsyncResult *pResult);
 
 private:
     long                        m_cRef;                     // reference count
@@ -195,16 +201,16 @@ private:
     ComPtr<StatMap>             m_pStatMap;
 
     IMFMediaEventQueue          *m_pEventQueue;             // Event generator helper
+
+    IMFAsyncResult              *m_pOpenResult;
     IMFPresentationDescriptor   *m_pPresentationDescriptor; // Presentation descriptor.
 
     PpboxMediaStream			**m_streams;                  // Array of streams.
 	DWORD						m_stream_number;
 
     DWORD                       m_cPendingEOS;              // Pending EOS notifications.
-    ULONG                       m_cRestartCounter;          // Counter for sample requests.
 
     SourceOp                    *m_pCurrentOp;
-    SourceOp                    *m_pSampleRequest;
 
     BOOL                        m_bLive;
     UINT64                      m_uDuration;
@@ -220,9 +226,9 @@ private:
     UINT32                      m_uConnectionStatus;
 
     // Async callback helper.
-    AsyncCallback<PpboxMediaSource>  m_OnScheduleDelayRequestSample;
+    AsyncCallback<PpboxMediaSource>  m_OnScheduleTimer;
     //MFWORKITEM_KEY              m_keyScheduleDelayRequestSample;
-	void const *				m_keyScheduleDelayRequestSample;
+	void const *				m_keyScheduleTimer;
 };
 
 
