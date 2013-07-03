@@ -174,6 +174,7 @@ private:
 
     HRESULT     DeliverPayload();
     HRESULT     EndOfPpboxStream();
+    HRESULT     UpdatePlayStat();
     HRESULT     UpdateNetStat();
 
     HRESULT     CreateStream(long stream_id);

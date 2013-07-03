@@ -605,7 +605,7 @@ HRESULT PpboxMediaSource::OnScheduleTimer(SourceOp *pOp)
 				    PPBOX_ScheduleCallback(100, &m_OnScheduleTimer, OnPpboxTimer);
 		    }
         }
-        else
+        else if (m_state == STATE_STARTED)
         {
             DeliverPayload();
         }
@@ -1505,21 +1505,58 @@ HRESULT PpboxMediaSource::EndOfPpboxStream()
     TRACEHR_RET(hr);
 }
 
+HRESULT PpboxMediaSource::UpdatePlayStat()
+{
+    HRESULT hr = S_OK;
+    PPBOX_PlayStatistic stat = {sizeof(stat)};
+    hr = PPBOX_GetPlayStat(&stat);
+    if (hr == ppbox_success || hr == ppbox_would_block)
+    {
+        m_uBufferSize = stat.buffer_time;
+        m_uBufferProcess = stat.buffering_present;
+        if (!m_bLive)
+        {
+            m_uDownloadProcess = (UINT32)((m_uTime + m_uBufferSize * 10000) * 100 / m_uDuration);
+        }
+        if (hr == ppbox_success)
+        {
+            hr = S_OK;
+        }
+        else
+        {
+            hr = E_PENDING;
+        }
+    }
+    else
+    {
+        hr = E_FAIL;
+    }
+    TRACEHR_RET(hr);
+}
+
 
 HRESULT PpboxMediaSource::UpdateNetStat()
 {
     HRESULT hr = S_OK;
-    PPBOX_NetStatistic stat2 = {sizeof(stat2)};
-    hr = PPBOX_GetNetStat(&stat2);
+    PPBOX_NetStatistic stat = {sizeof(stat)};
+    hr = PPBOX_GetNetStat(&stat);
     if (hr == ppbox_success || hr == ppbox_would_block)
     {
-        m_uDownloadSpeed = stat2.average_speed_five_seconds;
-        m_uBytesRecevied = stat2.total_download_bytes;
-        m_uConnectionStatus = stat2.connection_status;
+        m_uDownloadSpeed = stat.average_speed_five_seconds;
+        m_uBytesRecevied = stat.total_download_bytes;
+        m_uConnectionStatus = stat.connection_status;
 
         PropertySetSet(m_pStatMap, L"ConnectionStatus", m_uConnectionStatus);
         PropertySetSet(m_pStatMap, L"BytesRecevied", m_uBytesRecevied);
         PropertySetSet(m_pStatMap, L"DownloadSpeed", m_uDownloadSpeed);
+        if (hr == ppbox_success)
+        {
+            hr = S_OK;
+        }
+        else
+        {
+            hr = E_PENDING;
+        }
     }
     else
     {
@@ -1574,44 +1611,47 @@ HRESULT PpboxMediaSource::DeliverPayload()
     IMFSample           *pSample = NULL;
     BYTE                *pData = NULL;      // Pointer to the IMFMediaBuffer data.
 
-    if (m_bBufferring || m_uTimeGetBufferStat <= GetTickCount64())
+    if (m_bBufferring)
     {
-        hr = UpdateNetStat();
-        PPBOX_PlayStatistic stat = {sizeof(stat)};
-        hr = PPBOX_GetPlayStat(&stat);
-        if (hr == ppbox_success || hr == ppbox_would_block)
+        while (true)
         {
-            m_uBufferSize = stat.buffer_time;
-            m_uBufferProcess = stat.buffering_present;
-            if (!m_bLive)
+            hr = UpdatePlayStat();
+
+            if (m_uBufferProcess >= 100)
             {
-                m_uDownloadProcess = (UINT32)((m_uTime + m_uBufferSize * 10000) * 100 / m_uDuration);
+                m_bBufferring = FALSE;
+                hr = m_pEventQueue->QueueEventParamVar(MEBufferingStopped, GUID_NULL, S_OK, NULL);
+                hr = S_OK;
+                break;
             }
 
-            m_uTimeGetBufferStat += 1000; // do get buffer stat once per second
-            if (m_bBufferring)
+            if (hr == S_OK)
             {
-                if (m_uBufferProcess < 100)
-                {
-		            if (m_keyScheduleTimer == 0) {
-			            //OutputDebugString(L"[DeliverPayload] would block\r\n");
-			            m_keyScheduleTimer = 
-				            PPBOX_ScheduleCallback(100, &m_OnScheduleTimer, OnPpboxTimer);
-		            }
-                    TRACEHR_RET(hr);
-                }
-                else
-                {
-                    m_bBufferring = FALSE;
-                    hr = m_pEventQueue->QueueEventParamVar(MEBufferingStopped, GUID_NULL, S_OK, NULL);
-                }
+                continue;
+            }
+            else if (hr == E_PENDING)
+            {
+		        if (m_keyScheduleTimer == 0) {
+			        //OutputDebugString(L"[DeliverPayload] would block\r\n");
+			        m_keyScheduleTimer = 
+				        PPBOX_ScheduleCallback(100, &m_OnScheduleTimer, OnPpboxTimer);
+		        }
+                UpdateNetStat();
+                hr = S_OK;
+                TRACEHR_RET(hr);
+            }
+            else
+            {
+                TRACEHR_RET(hr);
             }
         }
-        else
-        {
-            hr = E_FAIL;
-            TRACEHR_RET(hr);
-        }
+    }
+
+    if (m_uTimeGetBufferStat <= GetTickCount64())
+    {
+        UpdatePlayStat();
+        UpdateNetStat();
+        m_uTimeGetBufferStat += 1000;
     }
 
     hr = PPBOX_ReadSample(&sample);
