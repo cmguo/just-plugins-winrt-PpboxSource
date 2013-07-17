@@ -609,6 +609,13 @@ HRESULT PpboxMediaSource::OnScheduleTimer(SourceOp *pOp)
         {
             DeliverPayload();
         }
+        else if (m_state == STATE_SHUTDOWN)
+        {
+		    if (m_keyScheduleTimer) {
+                m_OnScheduleTimer.Release();
+                m_keyScheduleTimer = 0;
+            }
+        }
     }
 
     if (SUCCEEDED(hr))
@@ -682,6 +689,10 @@ HRESULT PpboxMediaSource::Shutdown()
         SafeRelease(&m_pEventQueue);
         SafeRelease(&m_pPresentationDescriptor);
         SafeRelease(&m_pCurrentOp);
+
+		if (m_keyScheduleTimer == 0) {
+            m_OnScheduleTimer.Release();
+        }
 
         PPBOX_Close();
 
@@ -859,6 +870,8 @@ PpboxMediaSource::PpboxMediaSource(HRESULT& hr) :
     {
         module->IncrementObjectCount();
     }
+
+    m_OnScheduleTimer.AddRef();
 
     // Create the media event queue.
     hr = MFCreateEventQueue(&m_pEventQueue);
