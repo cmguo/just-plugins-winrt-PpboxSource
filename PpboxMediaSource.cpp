@@ -481,6 +481,10 @@ void PpboxMediaSource::OpenCallback(HRESULT hr)
     {
         hr = InitPresentationDescriptor();
     }
+    else
+    {
+        m_state = STATE_INVALID;
+    }
 
     m_pOpenResult->SetStatus(hr);
 
@@ -599,22 +603,19 @@ HRESULT PpboxMediaSource::OnScheduleTimer(SourceOp *pOp)
         if (m_state == STATE_OPENING)
         {
             UpdateNetStat();
-		    if (m_keyScheduleTimer == 0) {
 			    //OutputDebugString(L"[DeliverPayload] would block\r\n");
-			    m_keyScheduleTimer = 
-				    PPBOX_ScheduleCallback(100, &m_OnScheduleTimer, OnPpboxTimer);
-		    }
+			m_keyScheduleTimer = 
+				PPBOX_ScheduleCallback(100, &m_OnScheduleTimer, OnPpboxTimer);
         }
         else if (m_state == STATE_STARTED)
         {
+            m_keyScheduleTimer = 0;
             DeliverPayload();
         }
-        else if (m_state == STATE_SHUTDOWN)
+        else
         {
-		    if (m_keyScheduleTimer) {
-                m_OnScheduleTimer.Release();
-                m_keyScheduleTimer = 0;
-            }
+            m_keyScheduleTimer = 0;
+            m_OnScheduleTimer.Release();
         }
     }
 
@@ -690,8 +691,8 @@ HRESULT PpboxMediaSource::Shutdown()
         SafeRelease(&m_pPresentationDescriptor);
         SafeRelease(&m_pCurrentOp);
 
-		if (m_keyScheduleTimer == 0) {
-            m_OnScheduleTimer.Release();
+		if (m_keyScheduleTimer) {
+            PPBOX_CancelCallback(m_keyScheduleTimer);
         }
 
         PPBOX_Close();
@@ -1939,6 +1940,8 @@ HRESULT PpboxMediaSource::OnScheduleTimerCallback(IMFAsyncResult *pResult)
         // If we are shut down, then we've already released the
         // byte stream. Nothing to do.
         LeaveCriticalSection(&m_critSec);
+        m_keyScheduleTimer = 0;
+        m_OnScheduleTimer.Release();
         return S_OK;
     }
 
@@ -1957,8 +1960,6 @@ HRESULT PpboxMediaSource::OnScheduleTimerCallback(IMFAsyncResult *pResult)
 	//OutputDebugString(L"OnScheduleTimer\r\n");
 
     hr = QueueAsyncOperation(SourceOp::OP_TIMER);
-
-	m_keyScheduleTimer = 0;
 
     SafeRelease(&pState);
     LeaveCriticalSection(&m_critSec);
