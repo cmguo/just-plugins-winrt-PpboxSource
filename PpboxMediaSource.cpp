@@ -420,6 +420,8 @@ HRESULT PpboxMediaSource::AsyncOpen(
     /* [in] */ IMFAsyncCallback *pCallback,
     /* [in] */ IUnknown *punkState)
 {
+    TRACE(3, L"PpboxMediaSource::AsyncOpen %p\r\n", this);
+
     USES_CONVERSION;
 
     HRESULT hr = S_OK;
@@ -475,6 +477,8 @@ void __cdecl PpboxMediaSource::StaticOpenCallback(PP_context user, PP_err err)
 
 void PpboxMediaSource::OpenCallback(HRESULT hr)
 {
+    TRACE(3, L"PpboxMediaSource::OpenCallback %p\r\n", this);
+
     EnterCriticalSection(&m_critSec);
 
     if (SUCCEEDED(hr))
@@ -498,6 +502,8 @@ void PpboxMediaSource::OpenCallback(HRESULT hr)
 HRESULT PpboxMediaSource::CancelOpen(
     /* [in] */ IUnknown *pIUnknownCancelCookie)
 {
+    TRACE(3, L"PpboxMediaSource::CancelOpen %p\r\n", this);
+
     PPBOX_Close();
     return S_OK;
 }
@@ -864,6 +870,8 @@ PpboxMediaSource::PpboxMediaSource(HRESULT& hr) :
     m_OnScheduleTimer(this, &PpboxMediaSource::OnScheduleTimerCallback),
     m_keyScheduleTimer(0)
 {
+    TRACE(3, L"PpboxMediaSource::PpboxMediaSource %p\r\n", this);
+
     InitializeCriticalSectionEx(&m_critSec, 1000, 0);
 
     auto module = ::Microsoft::WRL::GetModuleBase();
@@ -880,7 +888,7 @@ PpboxMediaSource::PpboxMediaSource(HRESULT& hr) :
 
 PpboxMediaSource::~PpboxMediaSource()
 {
-    if (m_state != STATE_SHUTDOWN)
+    if (m_state != STATE_INVALID && m_state != STATE_SHUTDOWN)
     {
         Shutdown();
     }
@@ -892,6 +900,8 @@ PpboxMediaSource::~PpboxMediaSource()
     }
 
 	DeleteCriticalSection(&m_critSec);
+
+    TRACE(3, L"PpboxMediaSource::~PpboxMediaSource %p\r\n", this);
 }
 
 
