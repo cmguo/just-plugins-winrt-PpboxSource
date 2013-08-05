@@ -34,6 +34,7 @@ PpboxSchemeHandler::PpboxSchemeHandler()
     , m_pCallback(this, &PpboxSchemeHandler::OpenCallback)
     , m_pSource(NULL)
 {
+    TRACE(3, L"PpboxSchemeHandler::PpboxSchemeHandler\r\n");
 }
 
 //-------------------------------------------------------------------
@@ -44,6 +45,7 @@ PpboxSchemeHandler::~PpboxSchemeHandler()
 {
     SafeRelease(&m_pSource);
     SafeRelease(&m_pConfiguration);
+    TRACE(3, L"PpboxSchemeHandler::~PpboxSchemeHandler\r\n");
 }
 
 

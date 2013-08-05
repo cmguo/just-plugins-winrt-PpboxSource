@@ -120,7 +120,8 @@ HRESULT PpboxMediaSource::QueryInterface(REFIID riid, void** ppv)
         hr = S_OK;
     }
 
-    TRACEHR_RET(hr);
+    //TRACEHR_RET(hr);
+    return hr;
 }
 
 ULONG PpboxMediaSource::AddRef()
@@ -151,7 +152,8 @@ STDMETHODIMP PpboxMediaSource::GetService(
         AddRef();
         hr = S_OK;
     }
-    TRACEHR_RET(hr);
+    //TRACEHR_RET(hr);
+    return hr;
 }
 
 static DWORD const NetSourceStatisticsId[] =
@@ -455,6 +457,7 @@ HRESULT PpboxMediaSource::AsyncOpen(
 			"format=raw&mux.RawMuxer.real_format=asf&mux.RawMuxer.time_scale=10000000", // &mux.TimeScale.time_adjust_mode=2
 			this, 
 			&PpboxMediaSource::StaticOpenCallback);
+        m_OnScheduleTimer.AddRef();
 		m_keyScheduleTimer = 
 			PPBOX_ScheduleCallback(100, &m_OnScheduleTimer, OnPpboxTimer);
     }
@@ -616,6 +619,7 @@ HRESULT PpboxMediaSource::OnScheduleTimer(SourceOp *pOp)
         else if (m_state == STATE_STARTED)
         {
             m_keyScheduleTimer = 0;
+            m_OnScheduleTimer.Release();
             DeliverPayload();
         }
         else
@@ -641,6 +645,8 @@ HRESULT PpboxMediaSource::OnScheduleTimer(SourceOp *pOp)
 
 HRESULT PpboxMediaSource::Pause()
 {
+    TRACE(0, L"PpboxMediaSource::Pause\r\n");
+
     EnterCriticalSection(&m_critSec);
 
     HRESULT hr = S_OK;
@@ -665,6 +671,8 @@ HRESULT PpboxMediaSource::Pause()
 
 HRESULT PpboxMediaSource::Shutdown()
 {
+    TRACE(0, L"PpboxMediaSource::Shutdown\r\n");
+
     EnterCriticalSection(&m_critSec);
 
     HRESULT hr = S_OK;
@@ -723,6 +731,7 @@ HRESULT PpboxMediaSource::Start(
         const PROPVARIANT* pvarStartPos
     )
 {
+    TRACE(0, L"PpboxMediaSource::Start\r\n");
 
     HRESULT hr = S_OK;
     SourceOp *pAsyncOp = NULL;
@@ -815,6 +824,8 @@ done:
 
 HRESULT PpboxMediaSource::Stop()
 {
+    TRACE(0, L"PpboxMediaSource::Stop\r\n");
+
     EnterCriticalSection(&m_critSec);
 
     HRESULT hr = S_OK;
@@ -879,8 +890,6 @@ PpboxMediaSource::PpboxMediaSource(HRESULT& hr) :
     {
         module->IncrementObjectCount();
     }
-
-    m_OnScheduleTimer.AddRef();
 
     // Create the media event queue.
     hr = MFCreateEventQueue(&m_pEventQueue);
@@ -1549,6 +1558,7 @@ HRESULT PpboxMediaSource::UpdatePlayStat()
         else
         {
             hr = E_PENDING;
+            return hr;
         }
     }
     else
@@ -1657,6 +1667,7 @@ HRESULT PpboxMediaSource::DeliverPayload()
             {
 		        if (m_keyScheduleTimer == 0) {
 			        //OutputDebugString(L"[DeliverPayload] would block\r\n");
+                    m_OnScheduleTimer.AddRef();
 			        m_keyScheduleTimer = 
 				        PPBOX_ScheduleCallback(100, &m_OnScheduleTimer, OnPpboxTimer);
 		        }
@@ -1692,6 +1703,7 @@ HRESULT PpboxMediaSource::DeliverPayload()
         hr = m_pEventQueue->QueueEventParamVar(MEBufferingStarted, GUID_NULL, S_OK, NULL);
 		if (m_keyScheduleTimer == 0) {
 			//OutputDebugString(L"[DeliverPayload] would block\r\n");
+            m_OnScheduleTimer.AddRef();
 			m_keyScheduleTimer = 
 				PPBOX_ScheduleCallback(100, &m_OnScheduleTimer, OnPpboxTimer);
 		}
@@ -1950,8 +1962,6 @@ HRESULT PpboxMediaSource::OnScheduleTimerCallback(IMFAsyncResult *pResult)
         // If we are shut down, then we've already released the
         // byte stream. Nothing to do.
         LeaveCriticalSection(&m_critSec);
-        m_keyScheduleTimer = 0;
-        m_OnScheduleTimer.Release();
         return S_OK;
     }
 

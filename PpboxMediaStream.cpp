@@ -91,7 +91,8 @@ HRESULT PpboxMediaStream::QueryInterface(REFIID riid, void** ppv)
         hr = S_OK;
     }
 
-    TRACEHR_RET(hr);
+    //TRACEHR_RET(hr);
+    return hr;
 }
 
 
