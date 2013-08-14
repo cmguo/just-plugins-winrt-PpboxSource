@@ -1434,8 +1434,8 @@ HRESULT PpboxMediaSource::SelectStreams(
     }
     else
     {
-        varStart->vt = VT_I8;
-        varStart->hVal.QuadPart = m_uTime;
+        //varStart->vt = VT_I8;
+        //varStart->hVal.QuadPart = m_uTime;
     }
 
     if (FAILED(hr))
