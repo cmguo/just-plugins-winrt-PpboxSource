@@ -329,6 +329,8 @@ PpboxMediaStream::PpboxMediaStream(PpboxMediaSource *pSource, IMFStreamDescripto
     m_bActive(FALSE),
     m_bEOS(FALSE)
 {
+    TRACE(3, L"PpboxMediaStream::PpboxMediaStream %p\r\n", this);
+
     assert(pSource != NULL);
     assert(pSD != NULL);
 
@@ -358,6 +360,8 @@ PpboxMediaStream::~PpboxMediaStream()
     {
         module->DecrementObjectCount();
     }
+
+    TRACE(3, L"PpboxMediaStream::~PpboxMediaStream %p\r\n", this);
 }
 
 

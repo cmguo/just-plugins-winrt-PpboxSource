@@ -975,7 +975,7 @@ HRESULT PpboxMediaSource::InitPresentationDescriptor()
     // Fill the array by getting the stream descriptors from the streams.
     for (DWORD i = 0; i < m_stream_number; i++)
     {
-        CreateStream(i);
+        CreateStream(i, &m_streams[i]);
         hr = m_streams[i]->GetStreamDescriptor(&ppSD[i]);
         if (FAILED(hr))
         {
@@ -1798,7 +1798,7 @@ HRESULT PpboxMediaSource::DeliverPayload()
 // Creates a media stream, based on a packet header.
 //-------------------------------------------------------------------
 
-HRESULT PpboxMediaSource::CreateStream(long stream_id)
+HRESULT PpboxMediaSource::CreateStream(long stream_id, PpboxMediaStream **ppStream)
 {
     HRESULT hr = S_OK;
 
@@ -1806,8 +1806,8 @@ HRESULT PpboxMediaSource::CreateStream(long stream_id)
 
     IMFMediaType *pType = NULL;
     IMFStreamDescriptor *pSD = NULL;
-    PpboxMediaStream *pStream = NULL;
     IMFMediaTypeHandler *pHandler = NULL;
+    PpboxMediaStream *pStream = NULL;
 
     PPBOX_GetStreamInfo(stream_id, &info);
 
@@ -1854,12 +1854,14 @@ HRESULT PpboxMediaSource::CreateStream(long stream_id)
 
     if (SUCCEEDED(hr))
     {
-        m_streams[stream_id] = pStream;
+        *ppStream = pStream;
 		pStream->AddRef();
     }
 
-    SafeRelease(&pSD);
     SafeRelease(&pStream);
+    SafeRelease(&pHandler);
+    SafeRelease(&pSD);
+    SafeRelease(&pType);
     TRACEHR_RET(hr);
 }
 

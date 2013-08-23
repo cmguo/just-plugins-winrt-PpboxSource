@@ -177,7 +177,7 @@ private:
     HRESULT     UpdatePlayStat();
     HRESULT     UpdateNetStat();
 
-    HRESULT     CreateStream(long stream_id);
+    HRESULT     CreateStream(long stream_id, PpboxMediaStream **ppStream);
 
     HRESULT     ValidatePresentationDescriptor(IMFPresentationDescriptor *pPD);
 
