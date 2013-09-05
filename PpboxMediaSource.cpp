@@ -1572,8 +1572,8 @@ HRESULT PpboxMediaSource::UpdatePlayStat()
 HRESULT PpboxMediaSource::UpdateNetStat()
 {
     HRESULT hr = S_OK;
-    PPBOX_NetStatistic stat = {sizeof(stat)};
-    hr = PPBOX_GetNetStat(&stat);
+    PPBOX_DataStat stat;
+    hr = PPBOX_GetDataStat(&stat);
     if (hr == ppbox_success || hr == ppbox_would_block)
     {
         m_uDownloadSpeed = stat.average_speed_five_seconds;
