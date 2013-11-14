@@ -454,7 +454,12 @@ HRESULT PpboxMediaSource::AsyncOpen(
 		AddRef();
         PPBOX_AsyncOpenEx(
 			pszPlaylink, 
-			"format=raw&mux.RawMuxer.real_format=asf&mux.RawMuxer.time_scale=10000000", // &mux.TimeScale.time_adjust_mode=2
+            "format=raw"
+                "&mux.RawMuxer.real_format=asf"
+                "&mux.RawMuxer.time_scale=10000000"
+                "&mux.Muxer.video_codec=AVC1,I420"
+                "&mux.Muxer.audio_codec=MP4A,FLT"
+                "&mux.Encoder.AVC1.param={profile:baseline,ref:2}", // &mux.TimeScale.time_adjust_mode=2
 			this, 
 			&PpboxMediaSource::StaticOpenCallback);
         m_OnScheduleTimer.AddRef();
@@ -1757,7 +1762,7 @@ HRESULT PpboxMediaSource::DeliverPayload()
         hr = pSample->AddBuffer(pBuffer);
     }
 
-    // Time stamp the sample.
+    // Time stamp
     if (SUCCEEDED(hr))
     {
         m_uTime = (sample.decode_time + sample.composite_time_delta);
@@ -1765,10 +1770,17 @@ HRESULT PpboxMediaSource::DeliverPayload()
         hr = pSample->SetSampleTime(m_uTime);
     }
 
+    // Duration
+    if (SUCCEEDED(hr))
+    {
+        hr = pSample->SetSampleDuration(sample.duration);
+    }
+
     // Deliver the payload to the stream.
     if (SUCCEEDED(hr))
     {
         assert(sample.itrack < m_stream_number);
+        //TRACE(0, L"sample itrack = %u, pts = %lu\r\n", sample.itrack, sample.decode_time + sample.composite_time_delta);
 		if (m_streams[sample.itrack]->IsActive())
 			hr = m_streams[sample.itrack]->DeliverPayload(pSample);
     }

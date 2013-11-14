@@ -572,7 +572,7 @@ HRESULT PpboxMediaStream::DeliverPayload(IMFSample *pSample)
 		IMFSample *pSample = NULL;
 		m_Samples.RemoveFront(&pSample);
 		SafeRelease(&pSample);
-        Trace(3, L"[PpboxMediaStream::DeliverPayload] drop sample");
+        Trace(3, L"[PpboxMediaStream::DeliverPayload] drop sample\r\n");
 	}
 
     hr = m_Samples.InsertBack(pSample);

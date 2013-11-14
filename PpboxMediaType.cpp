@@ -29,6 +29,47 @@
 // Create a media type from an Ppbox video sequence header.
 //-------------------------------------------------------------------
 
+struct CodecType {
+    PP_uint pp_type;
+    GUID mf_type;
+} const codec_type_table[] = {
+    {PPBOX_VideoSubType::AVC1, MFVideoFormat_H264}, 
+    {PPBOX_VideoSubType::MP4V, MFVideoFormat_MP4V}, 
+    {PPBOX_VideoSubType::I420, MFVideoFormat_I420}, 
+    {PPBOX_VideoSubType::YV12, MFVideoFormat_YV12}, 
+
+    {PPBOX_AudioSubType::MP4A, MFAudioFormat_AAC}, 
+    {PPBOX_AudioSubType::MP1A, MFAudioFormat_MP3}, 
+    {PPBOX_AudioSubType::WMA2, MFAudioFormat_WMAudioV8}, 
+    {PPBOX_AudioSubType::PCM, MFAudioFormat_PCM}, 
+    {PPBOX_AudioSubType::FLT, MFAudioFormat_Float}, 
+};
+
+static GUID find_codec_by_pp_type(
+    PP_uint pp_type)
+{
+    size_t n = sizeof(codec_type_table) / sizeof(codec_type_table[0]);
+    for (size_t i = 0; i < n; ++i) {
+        if (codec_type_table[i].pp_type == pp_type) {
+            return codec_type_table[i].mf_type;
+        }
+    }
+    GUID guid = {pp_type, 0x0000, 0x0010, 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71};
+    return guid;
+}
+
+static PP_uint find_codec_by_mf_type(
+    GUID mf_type)
+{
+    size_t n = sizeof(codec_type_table) / sizeof(codec_type_table[0]);
+    for (size_t i = 0; i < n; ++i) {
+        if (codec_type_table[i].mf_type == mf_type) {
+            return codec_type_table[i].pp_type;
+        }
+    }
+    return 0;
+}
+
 HRESULT CreateVideoMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType)
 {
     HRESULT hr = S_OK;
@@ -44,10 +85,8 @@ HRESULT CreateVideoMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
 
     if (SUCCEEDED(hr))
     {
-        if (info.sub_type == PPBOX_VideoSubType::AVC1)
-            hr = pType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_H264);
-        else
-            hr = pType->SetGUID(MF_MT_SUBTYPE, MFVideoFormat_WMV3);
+        GUID mf_type = find_codec_by_pp_type(info.sub_type);
+        hr = pType->SetGUID(MF_MT_SUBTYPE, mf_type);
     }
 
     // Format details.
@@ -255,16 +294,12 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
     // Subtype = Ppbox payload
     if (SUCCEEDED(hr))
     {
-        if (info.sub_type == PPBOX_AudioSubType::MP4A)
-            hr = pType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_AAC);
-        else if (info.sub_type == PPBOX_AudioSubType::MP1A)
-            hr = pType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_MP3);
-        else
-            hr = pType->SetGUID(MF_MT_SUBTYPE, MFAudioFormat_WMAudioV8);
+        GUID mf_type = find_codec_by_pp_type(info.sub_type);
+        hr = pType->SetGUID(MF_MT_SUBTYPE, mf_type);
     }
 
     // Format details.
-    if (SUCCEEDED(hr))
+    if (SUCCEEDED(hr) && info.format.audio.sample_size)
     {
         // Sample size
 
@@ -292,7 +327,29 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
             );
     }
 
+    UINT32 blockAlign = info.format.audio.channel_count * (info.format.audio.sample_size / 8);
+    UINT32 bytesPerSecond = blockAlign * info.format.audio.sample_rate;
+
     if (SUCCEEDED(hr))
+    {
+        // Block alignment
+
+        hr = pType->SetUINT32(
+            MF_MT_AUDIO_BLOCK_ALIGNMENT,
+            blockAlign
+            );
+    }
+    if (SUCCEEDED(hr))
+    {
+        // Bytes per second
+
+        hr = pType->SetUINT32(
+            MF_MT_AUDIO_AVG_BYTES_PER_SECOND,
+            bytesPerSecond
+            );
+    }
+
+    if (SUCCEEDED(hr) && info.format_size)
     {
         // foramt data
 
