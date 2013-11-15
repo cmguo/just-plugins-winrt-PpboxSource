@@ -457,8 +457,8 @@ HRESULT PpboxMediaSource::AsyncOpen(
             "format=raw"
                 "&mux.RawMuxer.real_format=asf"
                 "&mux.RawMuxer.time_scale=10000000"
-                "&mux.Muxer.video_codec=AVC1,I420"
-                "&mux.Muxer.audio_codec=MP4A,FLT"
+                "&mux.Muxer.video_codec=AVC1,MP4V,WMV2,WMV3,I420,RGBT"
+                "&mux.Muxer.audio_codec=MP4A,MP1A,WMA2,AC3,EAC3,FLT,PCM"
                 "&mux.Encoder.AVC1.param={profile:baseline,ref:2}", // &mux.TimeScale.time_adjust_mode=2
 			this, 
 			&PpboxMediaSource::StaticOpenCallback);

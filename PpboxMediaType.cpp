@@ -35,14 +35,18 @@ struct CodecType {
 } const codec_type_table[] = {
     {PPBOX_VideoSubType::AVC1, MFVideoFormat_H264}, 
     {PPBOX_VideoSubType::MP4V, MFVideoFormat_MP4V}, 
+    {PPBOX_VideoSubType::WMV2, MFVideoFormat_WMV2}, 
+    {PPBOX_VideoSubType::WMV3, MFVideoFormat_WMV3}, 
     {PPBOX_VideoSubType::I420, MFVideoFormat_I420}, 
-    {PPBOX_VideoSubType::YV12, MFVideoFormat_YV12}, 
+    {PPBOX_VideoSubType::RGBT, MFVideoFormat_RGB24}, 
 
     {PPBOX_AudioSubType::MP4A, MFAudioFormat_AAC}, 
     {PPBOX_AudioSubType::MP1A, MFAudioFormat_MP3}, 
     {PPBOX_AudioSubType::WMA2, MFAudioFormat_WMAudioV8}, 
-    {PPBOX_AudioSubType::PCM, MFAudioFormat_PCM}, 
+    {PPBOX_AudioSubType::AC3, MFAudioFormat_Dolby_AC3}, 
+    {PPBOX_AudioSubType::EAC3, MFAudioFormat_Dolby_DDPlus}, 
     {PPBOX_AudioSubType::FLT, MFAudioFormat_Float}, 
+    {PPBOX_AudioSubType::PCM, MFAudioFormat_PCM}, 
 };
 
 static GUID find_codec_by_pp_type(
@@ -327,25 +331,22 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
             );
     }
 
-    UINT32 blockAlign = info.format.audio.channel_count * (info.format.audio.sample_size / 8);
-    UINT32 bytesPerSecond = blockAlign * info.format.audio.sample_rate;
-
-    if (SUCCEEDED(hr))
+    if (SUCCEEDED(hr) && info.format.audio.block_align)
     {
         // Block alignment
 
         hr = pType->SetUINT32(
             MF_MT_AUDIO_BLOCK_ALIGNMENT,
-            blockAlign
+            info.format.audio.block_align
             );
     }
-    if (SUCCEEDED(hr))
+    if (SUCCEEDED(hr) && info.bitrate)
     {
         // Bytes per second
 
         hr = pType->SetUINT32(
             MF_MT_AUDIO_AVG_BYTES_PER_SECOND,
-            bytesPerSecond
+            info.bitrate / 8
             );
     }
 
