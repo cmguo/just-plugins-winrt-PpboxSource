@@ -41,12 +41,13 @@ struct CodecType {
     {PPBOX_VideoSubType::RGBT, MFVideoFormat_RGB24}, 
 
     {PPBOX_AudioSubType::MP4A, MFAudioFormat_AAC}, 
-    {PPBOX_AudioSubType::MP1A, MFAudioFormat_MP3}, 
+    {PPBOX_AudioSubType::MP3,  MFAudioFormat_MP3}, 
+    {PPBOX_AudioSubType::MP2,  MFAudioFormat_MPEG}, 
     {PPBOX_AudioSubType::WMA2, MFAudioFormat_WMAudioV8}, 
-    {PPBOX_AudioSubType::AC3, MFAudioFormat_Dolby_AC3}, 
+    {PPBOX_AudioSubType::AC3,  MFAudioFormat_Dolby_AC3}, 
     {PPBOX_AudioSubType::EAC3, MFAudioFormat_Dolby_DDPlus}, 
-    {PPBOX_AudioSubType::FLT, MFAudioFormat_Float}, 
-    {PPBOX_AudioSubType::PCM, MFAudioFormat_PCM}, 
+    {PPBOX_AudioSubType::FLT,  MFAudioFormat_Float}, 
+    {PPBOX_AudioSubType::PCM,  MFAudioFormat_PCM}, 
 };
 
 static GUID find_codec_by_pp_type(
