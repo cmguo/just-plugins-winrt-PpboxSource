@@ -7,5 +7,6 @@ namespace PpboxSource
     [version(NTDDI_WIN8)]
     runtimeclass PpboxSchemeHandler 
     {
+		[default] interface Windows.Media.IMediaExtension;
     }
 }
