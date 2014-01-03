@@ -1016,8 +1016,8 @@ HRESULT PpboxMediaSource::InitPresentationDescriptor()
         }
     }
 
-    // Switch state from "STATE_INVALID" to stopped.
-    m_state = STATE_STOPPED;
+    // Switch state from "STATE_INVALID" to opened.
+    m_state = STATE_OPENED;
 
 done:
     // clean up:
@@ -1427,7 +1427,7 @@ HRESULT PpboxMediaSource::SelectStreams(
     // Reset the pending EOS count.
     m_cPendingEOS = 0;
 
-    if (varStart->vt == VT_I8 && !m_bLive)
+    if (varStart->vt == VT_I8 && !m_bLive && m_state == STATE_STOPPED)
     {
         hr = PPBOX_Seek((PP_uint)(varStart->hVal.QuadPart / 10000));
         if (hr == ppbox_success || hr == ppbox_would_block) {

@@ -47,6 +47,7 @@ enum SourceState
 {
     STATE_INVALID,      // Initial state. Have not started opening the stream.
     STATE_OPENING,
+    STATE_OPENED,
     STATE_STOPPED,
     STATE_PAUSED,
     STATE_STARTED,
