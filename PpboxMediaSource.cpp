@@ -452,7 +452,7 @@ HRESULT PpboxMediaSource::AsyncOpen(
         m_state = STATE_OPENING;
 
 		AddRef();
-        PPBOX_AsyncOpenEx(
+        JUST_AsyncOpenEx(
 			pszPlaylink, 
             "format=raw"
                 "&mux.RawMuxer.real_format=asf"
@@ -464,7 +464,7 @@ HRESULT PpboxMediaSource::AsyncOpen(
 			&PpboxMediaSource::StaticOpenCallback);
         m_OnScheduleTimer.AddRef();
 		m_keyScheduleTimer = 
-			PPBOX_ScheduleCallback(100, &m_OnScheduleTimer, OnPpboxTimer);
+			JUST_ScheduleCallback(100, &m_OnScheduleTimer, OnPpboxTimer);
     }
 
 	SafeRelease(&pResult);
@@ -475,11 +475,11 @@ HRESULT PpboxMediaSource::AsyncOpen(
 void __cdecl PpboxMediaSource::StaticOpenCallback(PP_context user, PP_err err)
 {
 	PpboxMediaSource * inst = (PpboxMediaSource *)user;
-    if (err != ppbox_success && err != ppbox_already_open && err != ppbox_operation_canceled)
+    if (err != just_success && err != just_already_open && err != just_operation_canceled)
     {
-        PPBOX_Close();
+        JUST_Close();
     }
-    inst->OpenCallback(err == ppbox_success ? S_OK : E_FAIL);
+    inst->OpenCallback(err == just_success ? S_OK : E_FAIL);
 	SafeRelease(&inst);
 }
 
@@ -512,7 +512,7 @@ HRESULT PpboxMediaSource::CancelOpen(
 {
     TRACE(3, L"PpboxMediaSource::CancelOpen %p\r\n", this);
 
-    PPBOX_Close();
+    JUST_Close();
     return S_OK;
 }
 
@@ -619,7 +619,7 @@ HRESULT PpboxMediaSource::OnScheduleTimer(SourceOp *pOp)
             UpdateNetStat();
 			    //OutputDebugString(L"[DeliverPayload] would block\r\n");
 			m_keyScheduleTimer = 
-				PPBOX_ScheduleCallback(100, &m_OnScheduleTimer, OnPpboxTimer);
+				JUST_ScheduleCallback(100, &m_OnScheduleTimer, OnPpboxTimer);
         }
         else if (m_state == STATE_STARTED)
         {
@@ -711,10 +711,10 @@ HRESULT PpboxMediaSource::Shutdown()
         SafeRelease(&m_pCurrentOp);
 
 		if (m_keyScheduleTimer) {
-            PPBOX_CancelCallback(m_keyScheduleTimer);
+            JUST_CancelCallback(m_keyScheduleTimer);
         }
 
-        PPBOX_Close();
+        JUST_Close();
 
         // Set the state.
         m_state = STATE_SHUTDOWN;
@@ -958,11 +958,11 @@ HRESULT PpboxMediaSource::InitPresentationDescriptor()
 
     assert(m_pPresentationDescriptor == NULL);
 
-    m_uDuration = PPBOX_GetDuration();
+    m_uDuration = JUST_GetDuration();
 	m_bLive = m_uDuration == (PP_uint)-1;
     m_uDuration *= 10000;
 
-	m_stream_number = PPBOX_GetStreamCount();
+	m_stream_number = JUST_GetStreamCount();
     // Ready to create the presentation descriptor.
 
     // Create an array of IMFStreamDescriptor pointers.
@@ -1321,7 +1321,7 @@ HRESULT PpboxMediaSource::DoStop(SourceOp *pOp)
     m_state = STATE_STOPPED;
 
 	if (m_keyScheduleTimer)
-		PPBOX_CancelCallback(m_keyScheduleTimer);
+		JUST_CancelCallback(m_keyScheduleTimer);
 
     // Send the "stopped" event. This might include a failure code.
     (void)m_pEventQueue->QueueEventParamVar(MESourceStopped, GUID_NULL, hr, NULL);
@@ -1429,8 +1429,8 @@ HRESULT PpboxMediaSource::SelectStreams(
 
     if (varStart->vt == VT_I8 && !m_bLive && m_state == STATE_STOPPED)
     {
-        hr = PPBOX_Seek((PP_uint)(varStart->hVal.QuadPart / 10000));
-        if (hr == ppbox_success || hr == ppbox_would_block) {
+        hr = JUST_Seek((PP_uint)(varStart->hVal.QuadPart / 10000));
+        if (hr == just_success || hr == just_would_block) {
 			m_uTime = varStart->hVal.QuadPart;
             hr = S_OK;
         } else {
@@ -1546,9 +1546,9 @@ HRESULT PpboxMediaSource::EndOfPpboxStream()
 HRESULT PpboxMediaSource::UpdatePlayStat()
 {
     HRESULT hr = S_OK;
-    PPBOX_PlayStatistic stat = {sizeof(stat)};
-    hr = PPBOX_GetPlayStat(&stat);
-    if (hr == ppbox_success || hr == ppbox_would_block)
+    JUST_PlayStatistic stat = {sizeof(stat)};
+    hr = JUST_GetPlayStat(&stat);
+    if (hr == just_success || hr == just_would_block)
     {
         m_uBufferSize = stat.buffer_time;
         m_uBufferProcess = stat.buffering_present;
@@ -1556,7 +1556,7 @@ HRESULT PpboxMediaSource::UpdatePlayStat()
         {
             m_uDownloadProcess = (UINT32)((m_uTime + m_uBufferSize * 10000) * 100 / m_uDuration);
         }
-        if (hr == ppbox_success)
+        if (hr == just_success)
         {
             hr = S_OK;
         }
@@ -1577,9 +1577,9 @@ HRESULT PpboxMediaSource::UpdatePlayStat()
 HRESULT PpboxMediaSource::UpdateNetStat()
 {
     HRESULT hr = S_OK;
-    PPBOX_DataStat stat;
-    hr = PPBOX_GetDataStat(&stat);
-    if (hr == ppbox_success || hr == ppbox_would_block)
+    JUST_DataStat stat;
+    hr = JUST_GetDataStat(&stat);
+    if (hr == just_success || hr == just_would_block)
     {
         m_uDownloadSpeed = stat.average_speed_five_seconds;
         m_uBytesRecevied = stat.total_download_bytes;
@@ -1588,7 +1588,7 @@ HRESULT PpboxMediaSource::UpdateNetStat()
         PropertySetSet(m_pStatMap, L"ConnectionStatus", m_uConnectionStatus);
         PropertySetSet(m_pStatMap, L"BytesRecevied", m_uBytesRecevied);
         PropertySetSet(m_pStatMap, L"DownloadSpeed", m_uDownloadSpeed);
-        if (hr == ppbox_success)
+        if (hr == just_success)
         {
             hr = S_OK;
         }
@@ -1644,7 +1644,7 @@ HRESULT PpboxMediaSource::DeliverPayload()
     // payload, and the payload belongs to a stream whose type we support.
 
     HRESULT             hr = S_OK;
-    PPBOX_Sample        sample;
+    JUST_Sample        sample;
 
     IMFMediaBuffer      *pBuffer = NULL;
     IMFSample           *pSample = NULL;
@@ -1674,7 +1674,7 @@ HRESULT PpboxMediaSource::DeliverPayload()
 			        //OutputDebugString(L"[DeliverPayload] would block\r\n");
                     m_OnScheduleTimer.AddRef();
 			        m_keyScheduleTimer = 
-				        PPBOX_ScheduleCallback(100, &m_OnScheduleTimer, OnPpboxTimer);
+				        JUST_ScheduleCallback(100, &m_OnScheduleTimer, OnPpboxTimer);
 		        }
                 UpdateNetStat();
                 hr = S_OK;
@@ -1694,13 +1694,13 @@ HRESULT PpboxMediaSource::DeliverPayload()
         m_uTimeGetBufferStat += 1000;
     }
 
-    hr = PPBOX_ReadSample(&sample);
+    hr = JUST_ReadSample(&sample);
 
-    if (hr == ppbox_success)
+    if (hr == just_success)
     {
         hr = S_OK;
     }
-    else if (hr == ppbox_would_block)
+    else if (hr == just_would_block)
     {
         //hr = MFScheduleWorkItem(&m_OnScheduleTimer, NULL, -100, NULL);
         //TRACEHR_RET(hr);
@@ -1710,12 +1710,12 @@ HRESULT PpboxMediaSource::DeliverPayload()
 			//OutputDebugString(L"[DeliverPayload] would block\r\n");
             m_OnScheduleTimer.AddRef();
 			m_keyScheduleTimer = 
-				PPBOX_ScheduleCallback(100, &m_OnScheduleTimer, OnPpboxTimer);
+				JUST_ScheduleCallback(100, &m_OnScheduleTimer, OnPpboxTimer);
 		}
 		hr = S_OK;
         TRACEHR_RET(hr);
     }
-    else if (hr == ppbox_stream_end)
+    else if (hr == just_stream_end)
     {
         hr = EndOfPpboxStream();
         TRACEHR_RET(hr);
@@ -1814,22 +1814,22 @@ HRESULT PpboxMediaSource::CreateStream(long stream_id, PpboxMediaStream **ppStre
 {
     HRESULT hr = S_OK;
 
-    PPBOX_StreamInfo info;
+    JUST_StreamInfo info;
 
     IMFMediaType *pType = NULL;
     IMFStreamDescriptor *pSD = NULL;
     IMFMediaTypeHandler *pHandler = NULL;
     PpboxMediaStream *pStream = NULL;
 
-    PPBOX_GetStreamInfo(stream_id, &info);
+    JUST_GetStreamInfo(stream_id, &info);
 
     switch (info.type)
     {
-    case PPBOX_StreamType::VIDE:
+    case JUST_StreamType::VIDE:
         hr = CreateVideoMediaType(info, &pType);
         break;
 
-    case PPBOX_StreamType::AUDI:
+    case JUST_StreamType::AUDI:
         hr = CreateAudioMediaType(info, &pType);
         break;
 

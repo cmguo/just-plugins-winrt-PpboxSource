@@ -15,5 +15,5 @@
 #include <windows.h>
 #include <mfapi.h>
 
-HRESULT CreateVideoMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType);
-HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType);
+HRESULT CreateVideoMediaType(const JUST_StreamInfo& info, IMFMediaType **ppType);
+HRESULT CreateAudioMediaType(const JUST_StreamInfo& info, IMFMediaType **ppType);

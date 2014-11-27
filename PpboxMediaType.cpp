@@ -33,21 +33,21 @@ struct CodecType {
     PP_uint pp_type;
     GUID mf_type;
 } const codec_type_table[] = {
-    {PPBOX_VideoSubType::AVC1, MFVideoFormat_H264}, 
-    {PPBOX_VideoSubType::MP4V, MFVideoFormat_MP4V}, 
-    {PPBOX_VideoSubType::WMV2, MFVideoFormat_WMV2}, 
-    {PPBOX_VideoSubType::WMV3, MFVideoFormat_WMV3}, 
-    {PPBOX_VideoSubType::I420, MFVideoFormat_I420}, 
-    {PPBOX_VideoSubType::RGBT, MFVideoFormat_RGB24}, 
+    {JUST_VideoSubType::AVC1, MFVideoFormat_H264}, 
+    {JUST_VideoSubType::MP4V, MFVideoFormat_MP4V}, 
+    {JUST_VideoSubType::WMV2, MFVideoFormat_WMV2}, 
+    {JUST_VideoSubType::WMV3, MFVideoFormat_WMV3}, 
+    {JUST_VideoSubType::I420, MFVideoFormat_I420}, 
+    {JUST_VideoSubType::RGBT, MFVideoFormat_RGB24}, 
 
-    {PPBOX_AudioSubType::MP4A, MFAudioFormat_AAC}, 
-    {PPBOX_AudioSubType::MP3,  MFAudioFormat_MP3}, 
-    {PPBOX_AudioSubType::MP2,  MFAudioFormat_MPEG}, 
-    {PPBOX_AudioSubType::WMA2, MFAudioFormat_WMAudioV8}, 
-    {PPBOX_AudioSubType::AC3,  MFAudioFormat_Dolby_AC3}, 
-    {PPBOX_AudioSubType::EAC3, MFAudioFormat_Dolby_DDPlus}, 
-    {PPBOX_AudioSubType::FLT,  MFAudioFormat_Float}, 
-    {PPBOX_AudioSubType::PCM,  MFAudioFormat_PCM}, 
+    {JUST_AudioSubType::MP4A, MFAudioFormat_AAC}, 
+    {JUST_AudioSubType::MP3,  MFAudioFormat_MP3}, 
+    {JUST_AudioSubType::MP2,  MFAudioFormat_MPEG}, 
+    {JUST_AudioSubType::WMA2, MFAudioFormat_WMAudioV8}, 
+    {JUST_AudioSubType::AC3,  MFAudioFormat_Dolby_AC3}, 
+    {JUST_AudioSubType::EAC3, MFAudioFormat_Dolby_DDPlus}, 
+    {JUST_AudioSubType::FLT,  MFAudioFormat_Float}, 
+    {JUST_AudioSubType::PCM,  MFAudioFormat_PCM}, 
 };
 
 static GUID find_codec_by_pp_type(
@@ -75,7 +75,7 @@ static PP_uint find_codec_by_mf_type(
     return 0;
 }
 
-HRESULT CreateVideoMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType)
+HRESULT CreateVideoMediaType(const JUST_StreamInfo& info, IMFMediaType **ppType)
 {
     HRESULT hr = S_OK;
 
@@ -156,7 +156,7 @@ HRESULT CreateVideoMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
 //-------------------------------------------------------------------
 /*
 HRESULT LogMediaType(IMFMediaType *pType);
-HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType)
+HRESULT CreateAudioMediaType(const JUST_StreamInfo& info, IMFMediaType **ppType)
 {
     HRESULT hr = S_OK;
     IMFMediaType *pType = NULL;
@@ -197,7 +197,7 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
 //*/
 /*
 DEFINE_GUID(MEDIASUBTYPE_RAW_AAC1, 0x000000FF, 0x0000, 0x0010, 0x80, 0x00, 0x00, 0xaa, 0x00, 0x38, 0x9b, 0x71);
-HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType)
+HRESULT CreateAudioMediaType(const JUST_StreamInfo& info, IMFMediaType **ppType)
 {
     HRESULT hr = S_OK;
     IMFMediaType *pType = NULL;
@@ -264,7 +264,7 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
 }
 //*/
 //*
-HRESULT Fill_HEAACWAVEFORMAT(const PPBOX_StreamInfo& info, PHEAACWAVEFORMAT format)
+HRESULT Fill_HEAACWAVEFORMAT(const JUST_StreamInfo& info, PHEAACWAVEFORMAT format)
 {
     PWAVEFORMATEX wf = &format->wfInfo.wfx;
     wf->wFormatTag = WAVE_FORMAT_MPEG_HEAAC;
@@ -284,7 +284,7 @@ HRESULT Fill_HEAACWAVEFORMAT(const PPBOX_StreamInfo& info, PHEAACWAVEFORMAT form
 	return S_OK;
 }
 
-HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType)
+HRESULT CreateAudioMediaType(const JUST_StreamInfo& info, IMFMediaType **ppType)
 {
     HRESULT hr = S_OK;
     IMFMediaType *pType = NULL;
@@ -362,7 +362,7 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
             );
     }
 
-    if (info.sub_type == PPBOX_AudioSubType::MP4A)
+    if (info.sub_type == JUST_AudioSubType::MP4A)
     {
         if (SUCCEEDED(hr))
         {
@@ -394,7 +394,7 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
                 sizeof(HEAACWAVEINFO) - sizeof(WAVEFORMATEX) + info.format_size
                 );
         }
-    } // if (info.sub_type == PPBOX_AudioSubType::MP4A)
+    } // if (info.sub_type == JUST_AudioSubType::MP4A)
 
     if (SUCCEEDED(hr))
     {
@@ -407,7 +407,7 @@ HRESULT CreateAudioMediaType(const PPBOX_StreamInfo& info, IMFMediaType **ppType
 }
 
 
-HRESULT CreateSample(PPBOX_Sample const & sample, IMFSample **ppSample)
+HRESULT CreateSample(JUST_Sample const & sample, IMFSample **ppSample)
 {
     HRESULT hr = S_OK;
     IMFMediaBuffer      *pBuffer = NULL;
